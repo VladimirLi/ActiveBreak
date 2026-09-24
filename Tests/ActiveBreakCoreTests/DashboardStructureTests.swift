@@ -22,6 +22,9 @@ import Testing
     #expect(dashboard.contains("DashboardPresentation.accessibilityLabel("))
     #expect(dashboard.contains("DashboardPresentation.axisTicks("))
     #expect(dashboard.contains("DashboardPresentation.popoverTimestamp("))
+    #expect(dashboard.contains("DashboardPresentation.summaryDuration("))
+    #expect(dashboard.contains(".time(pattern: .hourMinuteSecond)"))
+    #expect(!dashboard.contains(".time(pattern: .hourMinute)"))
     let timelineStart = try #require(dashboard.range(of: "private struct ActivityTimelineView"))
     let timeline = dashboard[timelineStart.lowerBound..<dashboard.endIndex]
     let axis = try #require(timeline.range(of: "TimelineAxis("))

@@ -158,13 +158,19 @@ struct DashboardView: View {
             Divider()
 
             HStack(spacing: 0) {
-                MetricView(title: "Active time", value: duration(dashboard.activeDuration))
+                MetricView(
+                    title: "Active time",
+                    value: DashboardPresentation.summaryDuration(dashboard.activeDuration)
+                )
                 Divider()
-                MetricView(title: "Overtime", value: duration(dashboard.overtimeDuration))
+                MetricView(
+                    title: "Overtime",
+                    value: DashboardPresentation.summaryDuration(dashboard.overtimeDuration)
+                )
                 Divider()
                 MetricView(
                     title: "Longest completed",
-                    value: dashboard.longestStretch.map(duration) ?? "-"
+                    value: dashboard.longestStretch.map(DashboardPresentation.summaryDuration) ?? "-"
                 )
                 Divider()
                 MetricView(title: "Most active", value: mostActiveHour(dashboard.mostActiveHour))
@@ -245,10 +251,6 @@ struct DashboardView: View {
     private func mostActiveHour(_ hour: Int?) -> String {
         guard let hour else { return "-" }
         return String(format: "%02d:00-%02d:00", hour, (hour + 1) % 24)
-    }
-
-    private func duration(_ seconds: TimeInterval) -> String {
-        Duration.seconds(seconds).formatted(.time(pattern: .hourMinute))
     }
 }
 

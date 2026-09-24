@@ -89,7 +89,8 @@ popover with its exact start, end, duration, and overtime status. Summary
 metrics MUST report exact visible active time and overtime, the longest visible
 completed interval contribution, and the local hour containing the greatest
 active duration. Most-active-hour ties MUST choose the earlier hour and an
-empty selection MUST show no hour.
+empty selection MUST show no hour. Duration summaries MUST retain whole seconds
+with a compact format appropriate to their magnitude.
 
 The dashboard MUST include validated segments from the current active interval
 without appending them to history or duplicating a record after closure. Those

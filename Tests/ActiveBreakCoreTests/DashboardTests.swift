@@ -433,6 +433,14 @@ private func date(
     #expect(firstLabel != secondLabel)
 }
 
+@Test func dashboardSummaryDurationPreservesSecondsAdaptively() {
+    let multiHour: TimeInterval = 2 * 3_600 + 3 * 60 + 4
+
+    #expect(DashboardPresentation.summaryDuration(42) == "42s")
+    #expect(DashboardPresentation.summaryDuration(12 * 60 + 34) == "12m 34s")
+    #expect(DashboardPresentation.summaryDuration(multiHour) == "2h 03m 04s")
+}
+
 @Test func dashboardPresentationNamesTypeAndUniqueAccessibleDetails() throws {
     let start = date(23, hour: 13, minute: 5, second: 30)
     let end = date(23, hour: 13, minute: 47, second: 15)

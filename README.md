@@ -92,10 +92,11 @@ and completion status.
 The summary reports exact visible active time and overtime, the longest visible
 completed interval, and the local hour containing the most active time. Ongoing
 validated work contributes to active and overtime totals but not the completed
-interval metric. Ties for most active hour choose the earlier hour. Previous,
-Today, and next controls navigate by the selected range, and next never moves
-beyond today. The time geometry uses exact elapsed time from each local
-midnight, so daylight-saving transitions retain their real duration and order.
+interval metric. Duration summaries retain seconds using compact adaptive
+labels. Ties for most active hour choose the earlier hour. Previous, Today, and
+next controls navigate by the selected range, and next never moves beyond
+today. The time geometry uses exact elapsed time from each local midnight, so
+daylight-saving transitions retain their real duration and order.
 The pinned axis identifies its reference day and shows that day's actual local
 times with UTC offsets. If the range contains a daylight-saving transition,
 that transition day is the reference; its 23-hour or 25-hour header remains

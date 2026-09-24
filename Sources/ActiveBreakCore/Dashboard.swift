@@ -276,6 +276,24 @@ public enum DashboardPresentation {
         dateFormatter("EEE, MMM d, HH:mm:ss ZZZZZ", calendar: calendar).string(from: date)
     }
 
+    public static func summaryDuration(_ duration: TimeInterval) -> String {
+        let totalSeconds = max(0, Int(duration.rounded()))
+        if totalSeconds < 60 {
+            return "\(totalSeconds)s"
+        }
+        let seconds = totalSeconds % 60
+        let totalMinutes = totalSeconds / 60
+        if totalMinutes < 60 {
+            return String(format: "%dm %02ds", totalMinutes, seconds)
+        }
+        return String(
+            format: "%dh %02dm %02ds",
+            totalMinutes / 60,
+            totalMinutes % 60,
+            seconds
+        )
+    }
+
     public static func accessibilityLabel(
         for segment: DashboardSegment,
         calendar: Calendar = .current
