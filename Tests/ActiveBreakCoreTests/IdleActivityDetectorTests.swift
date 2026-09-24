@@ -61,6 +61,63 @@ import Testing
     ) == nil)
 }
 
+@Test func reconstructionJitterDoesNotAccumulateIntoFalseActivity() {
+    let start = Date(timeIntervalSince1970: 1_700_000_000)
+    var detector = IdleActivityDetector()
+
+    #expect(detector.activityDate(now: start, idleSeconds: 0) == start)
+    for sample in 1...10 {
+        let elapsed = Double(sample)
+        let reconstructedDrift = Double(sample) * 0.005
+        #expect(detector.activityDate(
+            now: start.addingTimeInterval(elapsed),
+            idleSeconds: elapsed - reconstructedDrift
+        ) == nil)
+    }
+}
+
+@Test func staleIdleJitterCannotRestartAndRecloseAfterDeadTime() {
+    let start = Date(timeIntervalSince1970: 1_700_000_000)
+    let settings = BreakSettings(workThreshold: 600, deadTime: 120)
+    var detector = IdleActivityDetector()
+    var reducer = TimerReducer()
+    var data = PersistedData(settings: settings)
+
+    func process(now: Date, idleSeconds: TimeInterval) -> HIDSampleResult {
+        PermissionlessHIDPolicy.processSample(
+            now: now,
+            idleSeconds: idleSeconds,
+            detector: &detector,
+            reducer: &reducer,
+            settings: settings
+        )
+    }
+
+    _ = process(now: start, idleSeconds: 0)
+    _ = process(now: start.addingTimeInterval(10), idleSeconds: 0)
+    let closure = process(now: start.addingTimeInterval(130), idleSeconds: 120)
+    data = TimerEffectProcessor.apply(closure.effects, state: reducer.state, to: data).data
+
+    #expect(data.history.count == 1)
+    #expect(reducer.state.mode == .idle)
+
+    for sample in 1...20 {
+        let now = start.addingTimeInterval(130 + Double(sample))
+        let staleEvent = start.addingTimeInterval(10 + Double(sample) * 0.005)
+        let result = process(now: now, idleSeconds: now.timeIntervalSince(staleEvent))
+        data = TimerEffectProcessor.apply(result.effects, state: reducer.state, to: data).data
+        #expect(result.effects.isEmpty)
+        #expect(reducer.state.mode == .idle)
+    }
+
+    #expect(data.history.count == 1)
+
+    let realActivity = process(now: start.addingTimeInterval(200), idleSeconds: 0.2)
+    #expect(realActivity.effects.isEmpty)
+    #expect(reducer.state.mode == .active)
+    #expect(reducer.state.interval?.startedAt == start.addingTimeInterval(199.8))
+}
+
 @Test func fiftyMillisecondEventPreventsPrematureDeadTimeClosure() {
     let start = Date(timeIntervalSince1970: 1_700_000_000)
     var detector = IdleActivityDetector()

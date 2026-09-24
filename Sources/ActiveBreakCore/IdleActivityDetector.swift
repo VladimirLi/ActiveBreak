@@ -44,7 +44,7 @@ public struct IdleActivityDetector: Sendable {
     public private(set) var lastEventAt: Date?
 
     public init(
-        timestampEpsilon: TimeInterval = 0.000_001,
+        timestampEpsilon: TimeInterval = 0.01,
         initialActivityWindow: TimeInterval = 1.5
     ) {
         self.timestampEpsilon = timestampEpsilon
@@ -62,8 +62,10 @@ public struct IdleActivityDetector: Sendable {
             lastEventAt = eventAt
             return idle <= initialActivityWindow ? eventAt : nil
         }
-        guard eventAt.timeIntervalSince(previous) > timestampEpsilon else { return nil }
-        lastEventAt = eventAt
+        lastEventAt = max(previous, eventAt)
+        guard eventAt.timeIntervalSince(previous) > timestampEpsilon,
+              idle <= initialActivityWindow
+        else { return nil }
         return eventAt
     }
 }

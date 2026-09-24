@@ -28,7 +28,10 @@ observable. A newly observed event strictly after dead time and no more than one
 poll interval after it MUST conservatively validate the unresolved gap as work.
 An event later than dead time plus that grace MUST close the prior interval.
 Pure timer operations MUST remain strict unless this grace is explicitly
-supplied.
+supplied. Reconstructed event-time jitter MUST NOT accumulate into false
+activity, and an inferred event older than the initial polling window MUST NOT
+restart an idle timer. Continued idle samples after closure MUST emit no
+additional history records.
 
 Remaining time below one hour MUST use `MM:SS`. One hour or more MUST use hours
 and minutes. At zero, exactly one threshold event MUST occur. Notification and

@@ -21,8 +21,47 @@ let benchmark = value(after: "--benchmark")
 let started = Date()
 var writes = 0
 
+func verifyRepeatedClosureProtection(settings: BreakSettings) throws {
+    struct RepeatedClosure: Error {}
+
+    let start = Date(timeIntervalSince1970: 1_700_000_000)
+    var detector = IdleActivityDetector()
+    var reducer = TimerReducer()
+    var history: [HistoryRecord] = []
+
+    func process(now: Date, idleSeconds: TimeInterval) {
+        let sample = PermissionlessHIDPolicy.processSample(
+            now: now,
+            idleSeconds: idleSeconds,
+            detector: &detector,
+            reducer: &reducer,
+            settings: settings
+        )
+        history = TimerEffectProcessor.apply(
+            sample.effects,
+            state: reducer.state,
+            to: PersistedData(settings: settings, history: history)
+        ).data.history
+    }
+
+    process(now: start, idleSeconds: 0)
+    process(now: start.addingTimeInterval(10), idleSeconds: 0)
+    process(now: start.addingTimeInterval(130), idleSeconds: 120)
+    for sample in 1...20 {
+        let now = start.addingTimeInterval(130 + Double(sample))
+        let staleEvent = start.addingTimeInterval(10 + Double(sample) * 0.005)
+        process(now: now, idleSeconds: now.timeIntervalSince(staleEvent))
+    }
+    guard history.count == 1, reducer.state.mode == .idle else {
+        throw RepeatedClosure()
+    }
+}
+
 do {
     var data = try store.load()
+    try verifyRepeatedClosureProtection(
+        settings: BreakSettings(workThreshold: 600, deadTime: 120)
+    )
     var reducer = TimerReducer(state: data.timer)
     let first = Date()
     _ = reducer.activity(at: first, settings: data.settings)
