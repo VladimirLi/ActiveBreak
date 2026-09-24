@@ -357,7 +357,7 @@ final class AppModel: NSObject, ObservableObject {
                 context: context
             ),
             with: Logs.timer,
-            level: sample.effects.isEmpty ? .debug : .info
+            level: DiagnosticLevelClassifier.timer(sample)
         )
         return changed
     }
@@ -396,7 +396,7 @@ final class AppModel: NSObject, ObservableObject {
                 outcome: result.outcome
             ),
             with: Logs.persistence,
-            level: result == .persisted || result == .skipped ? .debug : .error
+            level: DiagnosticLevelClassifier.persistence(result)
         )
         return result
     }
@@ -404,9 +404,22 @@ final class AppModel: NSObject, ObservableObject {
     private func log(
         _ event: DiagnosticEvent,
         with logger: Logger,
-        level: OSLogType = .info
+        level: DiagnosticLevel = .info
     ) {
-        logger.log(level: level, "\(event.message, privacy: .public)")
+        logger.log(level: level.osLogType, "\(event.message, privacy: .public)")
+    }
+}
+
+private extension DiagnosticLevel {
+    var osLogType: OSLogType {
+        switch self {
+        case .debug:
+            return .debug
+        case .info:
+            return .info
+        case .error:
+            return .error
+        }
     }
 }
 

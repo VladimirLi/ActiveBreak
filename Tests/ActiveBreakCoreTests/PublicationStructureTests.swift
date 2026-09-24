@@ -23,4 +23,6 @@ import Testing
     let pauseBody = appModel[pauseStart.lowerBound..<pauseEnd.lowerBound]
     #expect(pauseBody.contains("let effects: [TimerEffect]"))
     #expect(pauseBody.contains("effects: effects"))
+    #expect(appModel.contains("DiagnosticLevelClassifier.timer(sample)"))
+    #expect(appModel.contains("DiagnosticLevelClassifier.persistence(result)"))
 }

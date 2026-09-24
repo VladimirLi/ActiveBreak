@@ -94,6 +94,10 @@ validated/provisional/overtime duration, emitted effect kinds and record ID,
 persistence outcome, sleep/wake/relaunch/quit handling, and login-item failure
 type.
 
+Timer state transitions, including effect-free idle-to-active starts, and
+successful persisted writes MUST be emitted at info level. Unchanged samples
+and skipped writes MUST be debug-only. Blocked and failed writes MUST be errors.
+
 Diagnostics MUST NOT include raw keys, pointer coordinates, application names,
 window titles, screenshots, raw input events, or unbounded error dumps.
 

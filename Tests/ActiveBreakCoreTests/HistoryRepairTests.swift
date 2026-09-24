@@ -163,6 +163,80 @@ import Testing
     #expect(try Data(contentsOf: stateURL) == original)
 }
 
+@Test func repairApplyRejectsBackupAliasesBeforeWritingStateOrBackup() throws {
+    for alias in ["direct", "standardized", "symlink", "hardlink"] {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let stateURL = directory.appendingPathComponent("state.json")
+        let start = Date(timeIntervalSince1970: 1_700_000_000)
+        try HistoryStore(url: stateURL).save(PersistedData(history: [
+            zeroWorkRecord(id: UUID(), start: start, breakEnd: start.addingTimeInterval(300)),
+            zeroWorkRecord(id: UUID(), start: start, breakEnd: start.addingTimeInterval(301)),
+        ]))
+        let originalState = try Data(contentsOf: stateURL)
+        let backupDate = Date(timeIntervalSince1970: 1_700_000_000)
+        let backupURL = HistoryRepair.backupURL(for: stateURL, at: backupDate)
+        let sentinel = Data("existing-backup".utf8)
+        try sentinel.write(to: backupURL)
+
+        let manifestURL: URL
+        switch alias {
+        case "direct":
+            manifestURL = backupURL
+        case "standardized":
+            let child = directory.appendingPathComponent("child")
+            try FileManager.default.createDirectory(at: child, withIntermediateDirectories: true)
+            manifestURL = child.appendingPathComponent("..")
+                .appendingPathComponent(backupURL.lastPathComponent)
+        case "symlink":
+            manifestURL = directory.appendingPathComponent("backup-link.json")
+            try FileManager.default.createSymbolicLink(at: manifestURL, withDestinationURL: backupURL)
+        default:
+            manifestURL = directory.appendingPathComponent("backup-hardlink.json")
+            try FileManager.default.linkItem(at: backupURL, to: manifestURL)
+        }
+
+        #expect(throws: HistoryRepairPathError.self) {
+            try HistoryRepairCommand.run(
+                stateURL: stateURL,
+                manifestURL: manifestURL,
+                apply: true,
+                backupDate: backupDate
+            )
+        }
+        #expect(try Data(contentsOf: stateURL) == originalState)
+        #expect(try Data(contentsOf: backupURL) == sentinel)
+    }
+}
+
+@Test func repairApplyRejectsNewBackupPathBeforeCreatingIt() throws {
+    let directory = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let stateURL = directory.appendingPathComponent("state.json")
+    let start = Date(timeIntervalSince1970: 1_700_000_000)
+    try HistoryStore(url: stateURL).save(PersistedData(history: [
+        zeroWorkRecord(id: UUID(), start: start, breakEnd: start.addingTimeInterval(300)),
+        zeroWorkRecord(id: UUID(), start: start, breakEnd: start.addingTimeInterval(301)),
+    ]))
+    let original = try Data(contentsOf: stateURL)
+    let backupDate = Date(timeIntervalSince1970: 1_700_000_000)
+    let backupURL = HistoryRepair.backupURL(for: stateURL, at: backupDate)
+
+    #expect(throws: HistoryRepairPathError.self) {
+        try HistoryRepairCommand.run(
+            stateURL: stateURL,
+            manifestURL: backupURL,
+            apply: true,
+            backupDate: backupDate
+        )
+    }
+    #expect(try Data(contentsOf: stateURL) == original)
+    #expect(!FileManager.default.fileExists(atPath: backupURL.path))
+}
+
 private func zeroWorkRecord(id: UUID, start: Date, breakEnd: Date) -> HistoryRecord {
     HistoryRecord(
         id: id,

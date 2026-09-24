@@ -7,6 +7,12 @@ public enum DiagnosticCategory: String, Codable, Sendable {
     case loginItem
 }
 
+public enum DiagnosticLevel: String, Equatable, Sendable {
+    case debug
+    case info
+    case error
+}
+
 public struct DiagnosticEvent: Codable, Equatable, Sendable {
     public var category: DiagnosticCategory
     public var event: String
@@ -142,5 +148,22 @@ public enum LifecycleDiagnosticBuilder {
             }.first,
             outcome: persistence.outcome
         )
+    }
+}
+
+public enum DiagnosticLevelClassifier {
+    public static func timer(_ sample: HIDSampleResult) -> DiagnosticLevel {
+        sample.stateBefore != sample.stateAfter || !sample.effects.isEmpty ? .info : .debug
+    }
+
+    public static func persistence(_ result: PersistenceResult) -> DiagnosticLevel {
+        switch result {
+        case .persisted:
+            return .info
+        case .skipped:
+            return .debug
+        case .blocked, .failed:
+            return .error
+        }
     }
 }

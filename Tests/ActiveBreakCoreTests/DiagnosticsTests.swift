@@ -165,3 +165,35 @@ import Testing
     #expect(event.effectKinds == ["history"])
     #expect(event.recordID == record.id)
 }
+
+@Test func diagnosticLevelsKeepTransitionsAndWritesAtInfo() {
+    let start = Date(timeIntervalSince1970: 1_700_000_000)
+    var detector = IdleActivityDetector()
+    var reducer = TimerReducer()
+    let settings = BreakSettings()
+
+    let started = PermissionlessHIDPolicy.processSample(
+        now: start,
+        idleSeconds: 0,
+        detector: &detector,
+        reducer: &reducer,
+        settings: settings
+    )
+    let unchanged = PermissionlessHIDPolicy.processSample(
+        now: start.addingTimeInterval(1),
+        idleSeconds: 1,
+        detector: &detector,
+        reducer: &reducer,
+        settings: settings
+    )
+
+    #expect(started.effects.isEmpty)
+    #expect(DiagnosticLevelClassifier.timer(started) == .info)
+    #expect(DiagnosticLevelClassifier.timer(unchanged) == .debug)
+    #expect(DiagnosticLevelClassifier.persistence(.persisted) == .info)
+    #expect(DiagnosticLevelClassifier.persistence(.skipped) == .debug)
+    #expect(DiagnosticLevelClassifier.persistence(.blocked) == .error)
+    #expect(DiagnosticLevelClassifier.persistence(
+        .failed(type: "DiskFull", message: "not logged")
+    ) == .error)
+}

@@ -44,6 +44,7 @@ public struct HistoryRepairCommandResult: Sendable {
 public enum HistoryRepairPathError: Error, Equatable {
     case stateOutputAlias(String)
     case outputAlias
+    case backupAlias(String)
     case candidateNotAllowedInApply
 }
 
@@ -55,16 +56,17 @@ public enum HistoryRepairCommand {
         apply: Bool,
         backupDate: Date = .now
     ) throws -> HistoryRepairCommandResult {
+        let backupURL = apply ? HistoryRepair.backupURL(for: stateURL, at: backupDate) : nil
         try validatePaths(
             stateURL: stateURL,
             manifestURL: manifestURL,
             candidateURL: candidateURL,
-            apply: apply
+            backupURL: backupURL
         )
 
         let manifest: HistoryRepairManifest
         if apply {
-            let applied = try HistoryRepair.apply(to: stateURL, backupDate: backupDate)
+            let applied = try HistoryRepair.apply(to: stateURL, backupURL: backupURL!)
             manifest = HistoryRepairManifest(
                 mode: "apply",
                 statePath: stateURL.path,
@@ -97,9 +99,9 @@ public enum HistoryRepairCommand {
         stateURL: URL,
         manifestURL: URL,
         candidateURL: URL?,
-        apply: Bool
+        backupURL: URL?
     ) throws {
-        if apply, candidateURL != nil {
+        if backupURL != nil, candidateURL != nil {
             throw HistoryRepairPathError.candidateNotAllowedInApply
         }
         if equivalent(stateURL, manifestURL) {
@@ -111,6 +113,17 @@ public enum HistoryRepairCommand {
             }
             if equivalent(manifestURL, candidateURL) {
                 throw HistoryRepairPathError.outputAlias
+            }
+        }
+        if let backupURL {
+            if equivalent(stateURL, backupURL) {
+                throw HistoryRepairPathError.backupAlias("state")
+            }
+            if equivalent(manifestURL, backupURL) {
+                throw HistoryRepairPathError.backupAlias("manifest")
+            }
+            if let candidateURL, equivalent(candidateURL, backupURL) {
+                throw HistoryRepairPathError.backupAlias("candidate")
             }
         }
     }
@@ -178,6 +191,19 @@ public enum HistoryRepair {
         to stateURL: URL,
         backupDate: Date = .now
     ) throws -> HistoryRepairApplyResult {
+        try apply(to: stateURL, backupURL: backupURL(for: stateURL, at: backupDate))
+    }
+
+    public static func backupURL(for stateURL: URL, at date: Date) -> URL {
+        stateURL.deletingLastPathComponent().appendingPathComponent(
+            "\(stateURL.lastPathComponent).backup-\(backupName(date))"
+        )
+    }
+
+    static func apply(
+        to stateURL: URL,
+        backupURL: URL
+    ) throws -> HistoryRepairApplyResult {
         let store = HistoryStore(url: stateURL)
         let current = try store.load()
         let result = preview(current)
@@ -185,9 +211,6 @@ public enum HistoryRepair {
             return HistoryRepairApplyResult(report: result.report, backupURL: nil)
         }
 
-        let backupURL = stateURL.deletingLastPathComponent().appendingPathComponent(
-            "\(stateURL.lastPathComponent).backup-\(backupName(backupDate))"
-        )
         let original = try Data(contentsOf: stateURL)
         guard !FileManager.default.fileExists(atPath: backupURL.path) else {
             throw CocoaError(.fileWriteFileExists)
