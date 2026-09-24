@@ -184,14 +184,15 @@ final class AppModel: NSObject, ObservableObject {
     func togglePause() {
         now = Date()
         let before = reducer.state.mode
-        var changed = false
+        let effects: [TimerEffect]
         if isPaused {
             reducer.resume()
             activityDetector.baseline(at: now)
+            effects = []
         } else {
-            changed = apply(reducer.pause(at: now))
+            effects = reducer.pause(at: now)
         }
-        changed = syncTimerState() || changed
+        let changed = apply(effects)
         updateStatus()
         let saveResult = save(changed: changed, force: true)
         log(
@@ -199,6 +200,7 @@ final class AppModel: NSObject, ObservableObject {
                 isPaused ? "pause" : "resume",
                 stateBefore: before,
                 stateAfter: reducer.state.mode,
+                effects: effects,
                 persistence: saveResult
             ),
             with: Logs.lifecycle
@@ -330,12 +332,6 @@ final class AppModel: NSObject, ObservableObject {
                 level: .error
             )
         }
-    }
-
-    private func syncTimerState() -> Bool {
-        guard data.timer != reducer.state else { return false }
-        data.timer = reducer.state
-        return true
     }
 
     @discardableResult

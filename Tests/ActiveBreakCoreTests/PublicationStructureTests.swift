@@ -14,4 +14,13 @@ import Testing
     #expect(!appModel.contains("@Published private(set) var now"))
     #expect(appModel.contains("PersistenceController"))
     #expect(appModel.contains("status.update"))
+
+    let pauseStart = try #require(appModel.range(of: "func togglePause()"))
+    let pauseEnd = try #require(appModel.range(
+        of: "func updateSettings",
+        range: pauseStart.upperBound..<appModel.endIndex
+    ))
+    let pauseBody = appModel[pauseStart.lowerBound..<pauseEnd.lowerBound]
+    #expect(pauseBody.contains("let effects: [TimerEffect]"))
+    #expect(pauseBody.contains("effects: effects"))
 }

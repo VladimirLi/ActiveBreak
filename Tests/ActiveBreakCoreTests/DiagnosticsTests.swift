@@ -143,3 +143,25 @@ import Testing
     #expect(failed.message.contains("DiskFull"))
     #expect(!failed.message.contains("not logged"))
 }
+
+@Test func pauseLifecycleDiagnosticIncludesClosureEffect() throws {
+    let start = Date(timeIntervalSince1970: 1_700_000_000)
+    var reducer = TimerReducer()
+    reducer.activity(at: start, settings: BreakSettings())
+    let effects = reducer.pause(at: start.addingTimeInterval(10))
+    let record = try #require(effects.compactMap { effect -> HistoryRecord? in
+        if case let .log(record) = effect { return record }
+        return nil
+    }.first)
+
+    let event = LifecycleDiagnosticBuilder.event(
+        "pause",
+        stateBefore: .active,
+        stateAfter: .paused,
+        effects: effects,
+        persistence: .persisted
+    )
+
+    #expect(event.effectKinds == ["history"])
+    #expect(event.recordID == record.id)
+}
