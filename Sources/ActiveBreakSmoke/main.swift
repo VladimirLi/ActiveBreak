@@ -59,4 +59,3 @@ do {
     FileHandle.standardError.write(Data("ActiveBreakSmoke failed: \(error)\n".utf8))
     exit(1)
 }
-

@@ -39,4 +39,3 @@ import Testing
         !["key", "keystroke", "pointer", "coordinates", "appName", "windowTitle"].contains($0)
     })
 }
-

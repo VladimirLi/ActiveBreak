@@ -109,4 +109,3 @@ private func zeroWorkRecord(id: UUID, start: Date, breakEnd: Date) -> HistoryRec
         workSegments: []
     )
 }
-
