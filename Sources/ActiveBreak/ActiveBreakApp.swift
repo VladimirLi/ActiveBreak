@@ -10,12 +10,10 @@ struct ActiveBreakApp: App {
         MenuBarExtra {
             MenuContent(model: model)
         } label: {
-            Label {
-                Text(model.statusText)
-                    .foregroundStyle(model.isOverdue ? .red : .primary)
-            } icon: {
-                Image(systemName: model.isOverdue ? "exclamationmark.circle.fill" : "figure.walk")
-            }
+            StatusBarCountdown(
+                text: model.statusText,
+                isOverdue: model.isOverdue
+            )
         }
         .menuBarExtraStyle(.menu)
 
@@ -27,6 +25,17 @@ struct ActiveBreakApp: App {
         Settings {
             SettingsView(model: model)
         }
+    }
+}
+
+private struct StatusBarCountdown: View {
+    let text: String
+    let isOverdue: Bool
+
+    var body: some View {
+        Text(text)
+            .monospacedDigit()
+            .foregroundStyle(isOverdue ? .red : .primary)
     }
 }
 

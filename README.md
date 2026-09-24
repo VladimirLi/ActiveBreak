@@ -1,7 +1,8 @@
 # ActiveBreak
 
 ActiveBreak is a native, menu-bar-only macOS utility that reminds you to take
-breaks based on actual keyboard, mouse, scroll, or tablet activity.
+breaks based on actual keyboard, mouse, scroll, or tablet activity. Its current
+countdown is shown directly in the menu bar.
 
 It uses macOS's aggregate HID idle-time API. It does not record keys, pointer
 positions, app names, window titles, or raw input events, and it does not need
