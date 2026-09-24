@@ -1,0 +1,79 @@
+import Foundation
+import Testing
+@testable import ActiveBreakCore
+
+@Test func closureRecordKeepsIntervalIdentityAndAppliesOnce() throws {
+    let start = Date(timeIntervalSince1970: 1_700_000_000)
+    let intervalID = UUID()
+    let settings = BreakSettings(workThreshold: 60, deadTime: 300)
+    var reducer = TimerReducer(state: TimerState(
+        mode: .active,
+        interval: ActiveInterval(
+            id: intervalID,
+            startedAt: start,
+            lastActivityAt: start,
+            settings: settings
+        )
+    ))
+
+    let effects = reducer.sample(at: start.addingTimeInterval(300))
+    let first = TimerEffectProcessor.apply(effects, state: reducer.state, to: PersistedData())
+    let second = TimerEffectProcessor.apply(effects, state: reducer.state, to: first.data)
+
+    #expect(first.data.history.map(\.id) == [intervalID])
+    #expect(first.data.timer == reducer.state)
+    #expect(first.historyChanged)
+    #expect(!second.historyChanged)
+    #expect(second.data.history.map(\.id) == [intervalID])
+
+    let decoded = try JSONDecoder.activeBreak.decode(
+        PersistedData.self,
+        from: JSONEncoder.activeBreak.encode(first.data)
+    )
+    #expect(decoded.history.first?.id == intervalID)
+
+    let directory = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = HistoryStore(url: directory.appendingPathComponent("state.json"))
+    try store.save(first.data)
+    let reloaded = try store.load()
+    #expect(reloaded.timer == reducer.state)
+    #expect(reloaded.history.map(\.id) == [intervalID])
+}
+
+@Test func repeatedClosurePathsDoNotEmitAgain() {
+    let start = Date(timeIntervalSince1970: 1_700_000_000)
+    let settings = BreakSettings(workThreshold: 60, deadTime: 300)
+    var reducer = TimerReducer()
+    reducer.activity(at: start, settings: settings)
+
+    #expect(reducer.sample(at: start.addingTimeInterval(300)).count == 1)
+    #expect(reducer.sample(at: start.addingTimeInterval(301)).isEmpty)
+    #expect(reducer.wake(at: start.addingTimeInterval(302)).isEmpty)
+    #expect(reducer.restore(
+        savedAt: start,
+        now: start.addingTimeInterval(303)
+    ).isEmpty)
+    #expect(reducer.pause(at: start.addingTimeInterval(304)).isEmpty)
+}
+
+@Test func persistenceCadenceSkipsUnchangedTicksAndFlushesBoundaries() {
+    let start = Date(timeIntervalSince1970: 1_700_000_000)
+    var cadence = PersistenceCadence(checkpointInterval: 60)
+
+    let initial = cadence.shouldSave(at: start, changed: true)
+    let oneSecond = cadence.shouldSave(at: start.addingTimeInterval(1), changed: false)
+    let beforeCheckpoint = cadence.shouldSave(at: start.addingTimeInterval(59.9), changed: false)
+    let checkpoint = cadence.shouldSave(at: start.addingTimeInterval(60), changed: false)
+    let forced = cadence.shouldSave(
+        at: start.addingTimeInterval(61),
+        changed: false,
+        force: true
+    )
+    #expect(initial)
+    #expect(!oneSecond)
+    #expect(!beforeCheckpoint)
+    #expect(checkpoint)
+    #expect(forced)
+}

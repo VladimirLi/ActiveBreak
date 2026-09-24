@@ -152,6 +152,7 @@ public struct TimerReducer: Sendable {
 
     private func record(for interval: ActiveInterval, breakEnd: Date?) -> HistoryRecord {
         HistoryRecord(
+            id: interval.id,
             intervalStart: interval.startedAt,
             intervalEnd: interval.lastActivityAt,
             activeDuration: interval.validatedActive,

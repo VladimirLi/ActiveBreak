@@ -24,7 +24,8 @@ import Testing
         range: component.upperBound..<source.endIndex
     ))
     let componentBody = source[component.lowerBound..<menu.lowerBound]
-    #expect(componentBody.contains("Text(text)"))
+    #expect(componentBody.contains("@ObservedObject var status: StatusBarModel"))
+    #expect(componentBody.contains("Text(status.text)"))
     #expect(componentBody.contains(".monospacedDigit()"))
     #expect(!componentBody.contains("Label("))
     #expect(!componentBody.contains("Image("))

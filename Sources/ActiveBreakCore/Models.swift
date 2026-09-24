@@ -39,6 +39,7 @@ public struct TimeSegment: Codable, Equatable, Sendable {
 }
 
 public struct ActiveInterval: Codable, Equatable, Sendable {
+    public var id: UUID
     public var startedAt: Date
     public var lastActivityAt: Date
     public var workSegments: [TimeSegment]
@@ -47,6 +48,7 @@ public struct ActiveInterval: Codable, Equatable, Sendable {
     public var notificationSent: Bool
 
     public init(
+        id: UUID = UUID(),
         startedAt: Date,
         lastActivityAt: Date,
         validatedActive: TimeInterval = 0,
@@ -55,6 +57,7 @@ public struct ActiveInterval: Codable, Equatable, Sendable {
         settings: BreakSettings,
         notificationSent: Bool = false
     ) {
+        self.id = id
         self.startedAt = startedAt
         self.lastActivityAt = lastActivityAt
         self.workSegments = workSegments ?? Self.legacySegments(
@@ -84,6 +87,7 @@ public struct ActiveInterval: Codable, Equatable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
+        case id
         case startedAt
         case lastActivityAt
         case validatedActive
@@ -95,6 +99,7 @@ public struct ActiveInterval: Codable, Equatable, Sendable {
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
         try container.encode(startedAt, forKey: .startedAt)
         try container.encode(lastActivityAt, forKey: .lastActivityAt)
         try container.encode(validatedActive, forKey: .validatedActive)
@@ -106,6 +111,7 @@ public struct ActiveInterval: Codable, Equatable, Sendable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
         startedAt = try container.decode(Date.self, forKey: .startedAt)
         lastActivityAt = try container.decode(Date.self, forKey: .lastActivityAt)
         settings = try container.decode(BreakSettings.self, forKey: .settings)

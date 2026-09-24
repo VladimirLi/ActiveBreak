@@ -10,9 +10,11 @@ public enum PermissionlessHIDPolicy {
         detector: inout IdleActivityDetector,
         reducer: inout TimerReducer,
         settings: BreakSettings
-    ) -> [TimerEffect] {
+    ) -> HIDSampleResult {
+        let stateBefore = reducer.state
         var effects: [TimerEffect] = []
-        if let eventAt = detector.activityDate(now: now, idleSeconds: idleSeconds) {
+        let eventAt = detector.activityDate(now: now, idleSeconds: idleSeconds)
+        if let eventAt {
             effects += reducer.activity(
                 at: eventAt,
                 settings: settings,
@@ -20,8 +22,20 @@ public enum PermissionlessHIDPolicy {
             )
         }
         effects += reducer.sample(at: now)
-        return effects
+        return HIDSampleResult(
+            effects: effects,
+            inferredEventAt: eventAt,
+            stateBefore: stateBefore,
+            stateAfter: reducer.state
+        )
     }
+}
+
+public struct HIDSampleResult: Sendable {
+    public var effects: [TimerEffect]
+    public var inferredEventAt: Date?
+    public var stateBefore: TimerState
+    public var stateAfter: TimerState
 }
 
 public struct IdleActivityDetector: Sendable {

@@ -10,10 +10,7 @@ struct ActiveBreakApp: App {
         MenuBarExtra {
             MenuContent(model: model)
         } label: {
-            StatusBarCountdown(
-                text: model.statusText,
-                isOverdue: model.isOverdue
-            )
+            StatusBarCountdown(status: model.status)
         }
         .menuBarExtraStyle(.menu)
 
@@ -29,13 +26,12 @@ struct ActiveBreakApp: App {
 }
 
 private struct StatusBarCountdown: View {
-    let text: String
-    let isOverdue: Bool
+    @ObservedObject var status: StatusBarModel
 
     var body: some View {
-        Text(text)
+        Text(status.text)
             .monospacedDigit()
-            .foregroundStyle(isOverdue ? .red : .primary)
+            .foregroundStyle(status.isOverdue ? .red : .primary)
     }
 }
 
