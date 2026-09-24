@@ -80,18 +80,23 @@ public enum HistoryAggregator {
                 summaries[key] = summary
             }
             if let breakStart = record.breakStart, let breakEnd = record.breakEnd {
-                let key = bucket(for: breakStart, period: period, calendar: calendar)
-                var summary = summaries[key] ?? HistorySummary(
-                    start: key,
-                    activeDuration: 0,
-                    overtimeDuration: 0,
-                    breakCount: 0,
-                    intervalCount: 0
+                let breakBuckets = Set(
+                    split(
+                        TimeSegment(start: breakStart, end: breakEnd),
+                        calendar: calendar
+                    ).map { bucket(for: $0.start, period: period, calendar: calendar) }
                 )
-                if breakEnd > breakStart {
+                for key in breakBuckets {
+                    var summary = summaries[key] ?? HistorySummary(
+                        start: key,
+                        activeDuration: 0,
+                        overtimeDuration: 0,
+                        breakCount: 0,
+                        intervalCount: 0
+                    )
                     summary.breakCount += 1
+                    summaries[key] = summary
                 }
-                summaries[key] = summary
             }
         }
         return summaries.values.sorted { $0.start < $1.start }

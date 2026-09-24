@@ -100,6 +100,34 @@ import Testing
     #expect(summaries[1].breakCount == 1)
 }
 
+@Test func breakSpanningMidnightCountsInEachDailyBucketOnly() throws {
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = try #require(TimeZone(identifier: "Europe/Stockholm"))
+    let breakStart = try #require(calendar.date(from: DateComponents(
+        year: 2026, month: 1, day: 2, hour: 23, minute: 59
+    )))
+    let record = HistoryRecord(
+        intervalStart: breakStart,
+        intervalEnd: breakStart,
+        activeDuration: 0,
+        overtimeDuration: 0,
+        breakStart: breakStart,
+        breakEnd: breakStart.addingTimeInterval(120)
+    )
+
+    let daily = HistoryAggregator.summarize([record], period: .daily, calendar: calendar)
+    #expect(daily.count == 2)
+    #expect(daily.map(\.breakCount) == [1, 1])
+
+    let weekly = HistoryAggregator.summarize([record], period: .weekly, calendar: calendar)
+    #expect(weekly.count == 1)
+    #expect(weekly[0].breakCount == 1)
+
+    let monthly = HistoryAggregator.summarize([record], period: .monthly, calendar: calendar)
+    #expect(monthly.count == 1)
+    #expect(monthly[0].breakCount == 1)
+}
+
 @Test func aggregationUsesProvidedCurrentTimezone() throws {
     let instant = Date(timeIntervalSince1970: 1_767_311_400)
     let record = HistoryRecord(
