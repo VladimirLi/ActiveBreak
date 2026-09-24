@@ -44,7 +44,12 @@ final class AppModel: NSObject, ObservableObject {
         self.persistenceBlocked = loadError != nil
         super.init()
 
-        apply(reducer.restore(savedAt: loaded.savedAt, now: now))
+        apply(reducer.restore(
+            savedAt: loaded.savedAt,
+            savedSystemUptime: loaded.savedSystemUptime,
+            now: now,
+            systemUptime: ProcessInfo.processInfo.systemUptime
+        ))
         save()
         configureLaunchAtLogin(enabled: data.settings.launchAtLogin)
         timer = Timer.scheduledTimer(
@@ -74,14 +79,7 @@ final class AppModel: NSObject, ObservableObject {
 
     @objc private func poll() {
         now = Date()
-        let idle = CGEventSource.secondsSinceLastEventType(
-            .hidSystemState,
-            eventType: CGEventType(rawValue: UInt32.max)!
-        )
-        if let eventAt = activityDetector.activityDate(now: now, idleSeconds: idle) {
-            apply(reducer.activity(at: eventAt, settings: data.settings))
-        }
-        apply(reducer.sample(at: now))
+        processHIDActivity()
         save()
     }
 
@@ -136,6 +134,7 @@ final class AppModel: NSObject, ObservableObject {
 
     func prepareToQuit() {
         now = Date()
+        processHIDActivity()
         save()
     }
 
@@ -193,9 +192,21 @@ final class AppModel: NSObject, ObservableObject {
         save()
     }
 
+    private func processHIDActivity() {
+        let idle = CGEventSource.secondsSinceLastEventType(
+            .hidSystemState,
+            eventType: CGEventType(rawValue: UInt32.max)!
+        )
+        if let eventAt = activityDetector.activityDate(now: now, idleSeconds: idle) {
+            apply(reducer.activity(at: eventAt, settings: data.settings))
+        }
+        apply(reducer.sample(at: now))
+    }
+
     private func save() {
         guard !persistenceBlocked else { return }
         data.savedAt = now
+        data.savedSystemUptime = ProcessInfo.processInfo.systemUptime
         do {
             try store.save(data)
             persistenceError = nil

@@ -71,6 +71,48 @@ import Testing
         == "ActiveBreak could not be found by macOS Login Items.")
 }
 
+@Test func quitClickAtDeadTimeBoundaryIsPersistedAsActivity() throws {
+    let start = Date(timeIntervalSince1970: 1_700_000_000)
+    var detector = IdleActivityDetector()
+    var reducer = TimerReducer()
+    let settings = BreakSettings(workThreshold: 1_000, deadTime: 300)
+
+    reducer.activity(
+        at: detector.activityDate(now: start, idleSeconds: 0)!,
+        settings: settings
+    )
+    let quitAt = start.addingTimeInterval(299)
+    reducer.activity(
+        at: detector.activityDate(now: quitAt, idleSeconds: 0)!,
+        settings: settings
+    )
+    reducer.sample(at: quitAt)
+
+    let persisted = PersistedData(
+        settings: settings,
+        timer: reducer.state,
+        savedAt: quitAt,
+        savedSystemUptime: 1_000
+    )
+    let decoded = try JSONDecoder.activeBreak.decode(
+        PersistedData.self,
+        from: JSONEncoder.activeBreak.encode(persisted)
+    )
+    var restored = TimerReducer(state: decoded.timer)
+
+    #expect(restored.restore(
+        savedAt: decoded.savedAt,
+        savedSystemUptime: decoded.savedSystemUptime,
+        now: start.addingTimeInterval(301),
+        systemUptime: 1_002
+    ).isEmpty)
+    #expect(restored.state.mode == .active)
+    #expect(restored.state.interval?.validatedActive == 299)
+
+    restored.activity(at: start.addingTimeInterval(302), settings: settings)
+    #expect(restored.state.interval?.validatedActive == 300)
+}
+
 @Test func stateFileOverrideDoesNotUseApplicationSupport() {
     let support = URL(fileURLWithPath: "/Users/example/Library/Application Support")
     let override = "/tmp/activebreak-test/state.json"

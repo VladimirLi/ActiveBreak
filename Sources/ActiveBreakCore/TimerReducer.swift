@@ -7,6 +7,8 @@ public enum TimerEffect: Equatable, Sendable {
 }
 
 public struct TimerReducer: Sendable {
+    public static let sleepDetectionTolerance: TimeInterval = 2
+
     public private(set) var state: TimerState
 
     public init(state: TimerState = TimerState()) {
@@ -70,11 +72,20 @@ public struct TimerReducer: Sendable {
     }
 
     @discardableResult
-    public mutating func restore(savedAt: Date, now: Date) -> [TimerEffect] {
+    public mutating func restore(
+        savedAt: Date,
+        savedSystemUptime: TimeInterval? = nil,
+        now: Date,
+        systemUptime: TimeInterval? = nil
+    ) -> [TimerEffect] {
         guard state.mode == .active, var interval = state.interval else { return [] }
         let downtime = max(0, now.timeIntervalSince(savedAt))
         let totalGap = max(0, now.timeIntervalSince(interval.lastActivityAt))
-        if totalGap >= interval.settings.deadTime {
+        if Self.detectedSleepOrReboot(
+            wallElapsed: downtime,
+            savedSystemUptime: savedSystemUptime,
+            currentSystemUptime: systemUptime
+        ) || totalGap >= interval.settings.deadTime {
             state = TimerState()
             return close(interval: interval, breakEnd: now)
         }
@@ -83,6 +94,17 @@ public struct TimerReducer: Sendable {
         }
         state.interval = interval
         return []
+    }
+
+    public static func detectedSleepOrReboot(
+        wallElapsed: TimeInterval,
+        savedSystemUptime: TimeInterval?,
+        currentSystemUptime: TimeInterval?
+    ) -> Bool {
+        guard let savedSystemUptime, let currentSystemUptime else { return false }
+        guard currentSystemUptime >= savedSystemUptime else { return true }
+        let uptimeElapsed = currentSystemUptime - savedSystemUptime
+        return wallElapsed - uptimeElapsed > sleepDetectionTolerance
     }
 
     @discardableResult

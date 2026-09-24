@@ -76,6 +76,58 @@ private let start = Date(timeIntervalSince1970: 1_700_000_000)
     #expect(reducer.state.interval?.validatedActive == 10)
 }
 
+@Test func shortNormalRelaunchWithUptimePreservesActiveState() {
+    var reducer = TimerReducer()
+    reducer.activity(at: start, settings: settings)
+
+    #expect(reducer.restore(
+        savedAt: start.addingTimeInterval(10),
+        savedSystemUptime: 1_000,
+        now: start.addingTimeInterval(20),
+        systemUptime: 1_010
+    ).isEmpty)
+    #expect(reducer.state.mode == .active)
+}
+
+@Test func shortSleepWhileClosedClearsActiveState() throws {
+    var reducer = TimerReducer()
+    reducer.activity(at: start, settings: settings)
+
+    let record = try #require(loggedRecord(from: reducer.restore(
+        savedAt: start.addingTimeInterval(10),
+        savedSystemUptime: 1_000,
+        now: start.addingTimeInterval(20),
+        systemUptime: 1_002
+    )))
+    #expect(record.breakDuration == 20)
+    #expect(reducer.state.mode == .idle)
+}
+
+@Test func uptimeRollbackClearsActiveStateAsReboot() throws {
+    var reducer = TimerReducer()
+    reducer.activity(at: start, settings: settings)
+
+    let effects = reducer.restore(
+        savedAt: start.addingTimeInterval(10),
+        savedSystemUptime: 10_000,
+        now: start.addingTimeInterval(20),
+        systemUptime: 5
+    )
+    #expect(loggedRecord(from: effects) != nil)
+    #expect(reducer.state.mode == .idle)
+}
+
+@Test func legacyRelaunchWithoutUptimeKeepsWallClockBehavior() {
+    var reducer = TimerReducer()
+    reducer.activity(at: start, settings: settings)
+
+    #expect(reducer.restore(
+        savedAt: start.addingTimeInterval(10),
+        now: start.addingTimeInterval(20)
+    ).isEmpty)
+    #expect(reducer.state.mode == .active)
+}
+
 @Test func relaunchUsesTotalUnresolvedGapForDeadTime() throws {
     var reducer = TimerReducer()
     reducer.activity(at: start, settings: settings)

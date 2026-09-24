@@ -20,11 +20,29 @@ import Testing
                 overtimeDuration: 0
             ),
         ],
-        savedAt: start
+        savedAt: start,
+        savedSystemUptime: 12_345.625
     )
     let store = HistoryStore(url: url)
     try store.save(data)
     #expect(try store.load() == data)
+}
+
+@Test func legacyPersistedDataDecodesWithoutSystemUptime() throws {
+    let start = Date(timeIntervalSince1970: 1_700_000_000.125)
+    let legacy = LegacyPersistedData(
+        settings: BreakSettings(),
+        timer: TimerState(),
+        history: [],
+        savedAt: start
+    )
+
+    let decoded = try JSONDecoder.activeBreak.decode(
+        PersistedData.self,
+        from: JSONEncoder.activeBreak.encode(legacy)
+    )
+    #expect(decoded.savedAt == start)
+    #expect(decoded.savedSystemUptime == nil)
 }
 
 @Test func fractionalDateRoundTripAndLegacyDateDecode() throws {
@@ -335,4 +353,11 @@ private struct LegacyHistoryRecord: Encodable {
 
 private struct DateBox: Codable {
     let date: Date
+}
+
+private struct LegacyPersistedData: Encodable {
+    let settings: BreakSettings
+    let timer: TimerState
+    let history: [HistoryRecord]
+    let savedAt: Date
 }

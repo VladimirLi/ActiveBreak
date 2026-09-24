@@ -38,8 +38,9 @@ wait for activity.
 State MUST persist across termination and restart. Relaunch downtime shorter
 than the interval's captured dead time MUST preserve state without counting
 app-off wall time as work. Downtime equal to or longer than dead time MUST count
-as a break and clear the interval. Sleep MUST count as a break and clear state
-on wake. Lock MUST follow the ordinary dead-time rule.
+as a break and clear the interval. Sleep or reboot while the app is closed MUST
+also count as a break and clear active state. Sleep while running MUST clear
+state on wake. Lock MUST follow the ordinary dead-time rule.
 
 Launch at login MUST default on and use `SMAppService`. Failures MUST be shown
 without damaging timer or history state.

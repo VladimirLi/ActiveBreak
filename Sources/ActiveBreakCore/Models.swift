@@ -298,16 +298,19 @@ public struct PersistedData: Codable, Equatable, Sendable {
     public var timer: TimerState
     public var history: [HistoryRecord]
     public var savedAt: Date
+    public var savedSystemUptime: TimeInterval?
 
     public init(
         settings: BreakSettings = BreakSettings(),
         timer: TimerState = TimerState(),
         history: [HistoryRecord] = [],
-        savedAt: Date = .now
+        savedAt: Date = .now,
+        savedSystemUptime: TimeInterval? = nil
     ) {
         self.settings = settings
         self.timer = timer
         self.history = history
         self.savedAt = savedAt
+        self.savedSystemUptime = savedSystemUptime
     }
 }

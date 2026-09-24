@@ -27,7 +27,8 @@ dead time is reached.
 
 At zero, ActiveBreak sends one notification. Notification banners and sound can
 be disabled independently. The timer continues below zero until dead time,
-Pause, sleep, or a sufficiently long app shutdown closes the interval.
+Pause, sleep (including while the app is closed), reboot, or a sufficiently
+long app shutdown closes the interval.
 
 Pause closes the current interval using validated work only. Resume waits for
 new activity. History is retained locally until **Delete All History** is
