@@ -302,20 +302,42 @@ private struct ActivityTimelineView: View {
     }
 
     private var tickOffsets: [Int] {
-        let first = Int(ceil(dashboard.scale.expandedStartOffset / 7_200) * 7_200)
-        let last = Int(floor(dashboard.scale.expandedEndOffset / 7_200) * 7_200)
+        let first = Int(ceil(dashboard.scale.expandedStartOffset / 3_600) * 3_600)
+        let last = Int(floor(dashboard.scale.expandedEndOffset / 3_600) * 3_600)
         guard first <= last else { return [] }
-        return Array(stride(from: first, through: last, by: 7_200))
+        return Array(stride(from: first, through: last, by: 3_600))
+    }
+
+    private var axisReferenceDay: DashboardDay {
+        DashboardPresentation.axisReferenceDay(in: dashboard.days)!
+    }
+
+    private var axisTicks: [DashboardAxisTick] {
+        DashboardPresentation.axisTicks(
+            offsets: tickOffsets.map(TimeInterval.init),
+            referenceDay: axisReferenceDay.date,
+            calendar: .current
+        )
     }
 
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
             VStack(spacing: 0) {
-                Color.clear.frame(height: 42)
+                Text(
+                    DashboardPresentation.axisReferenceLabel(
+                        for: axisReferenceDay.date,
+                        calendar: .current
+                    )
+                )
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.trailing)
+                .frame(maxWidth: .infinity, maxHeight: 42, alignment: .trailing)
+                .padding(.trailing, 6)
                 Divider()
                 TimelineAxis(
                     scale: dashboard.scale,
-                    tickOffsets: tickOffsets,
+                    ticks: axisTicks,
                     height: timelineHeight
                 )
                 .frame(height: timelineHeight)
@@ -373,19 +395,19 @@ private struct ActivityTimelineView: View {
 
 private struct TimelineAxis: View {
     let scale: DashboardTimeScale
-    let tickOffsets: [Int]
+    let ticks: [DashboardAxisTick]
     let height: CGFloat
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
-            ForEach(tickOffsets, id: \.self) { offset in
-                Text(String(format: "%02d:00", offset / 3_600))
+            ForEach(ticks, id: \.offset) { tick in
+                Text(tick.label)
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                     .monospacedDigit()
                     .position(
-                        x: 23,
-                        y: scale.position(for: Double(offset)) * height
+                        x: 40,
+                        y: scale.position(for: tick.offset) * height
                     )
             }
             ForEach(scale.bands.filter(\.isCompressed), id: \.startOffset) { band in
@@ -498,11 +520,21 @@ private struct ActivityPopover: View {
         Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 8) {
             GridRow {
                 Text("Start").foregroundStyle(.secondary)
-                Text(segment.start, format: .dateTime.weekday(.abbreviated).month().day().hour().minute().second())
+                Text(
+                    DashboardPresentation.popoverTimestamp(
+                        for: segment.start,
+                        calendar: .current
+                    )
+                )
             }
             GridRow {
                 Text("End").foregroundStyle(.secondary)
-                Text(segment.end, format: .dateTime.weekday(.abbreviated).month().day().hour().minute().second())
+                Text(
+                    DashboardPresentation.popoverTimestamp(
+                        for: segment.end,
+                        calendar: .current
+                    )
+                )
             }
             GridRow {
                 Text("Duration").foregroundStyle(.secondary)

@@ -106,6 +106,12 @@ timestamps, and the shared time axis MUST remain pinned while only day columns
 scroll horizontally. Every block's accessibility text MUST include date,
 start, end, duration, work type, and ongoing/completed status.
 
+The pinned axis MUST identify one reference day and derive each displayed local
+time from that day's midnight plus the exact elapsed offset. A visible
+daylight-saving transition day MUST be preferred as the reference day. Axis and
+popover timestamps MUST include UTC offsets so repeated local times remain
+distinguishable.
+
 Date navigation MUST provide previous, Today, and next controls. Navigation
 MUST move by the selected range and MUST NOT advance beyond today. Changing
 range MUST preserve the visible end date where possible. Export and confirmed

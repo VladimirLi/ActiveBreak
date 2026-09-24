@@ -198,8 +198,21 @@ public struct DashboardSegmentFrame: Equatable, Sendable {
     public let height: Double
 }
 
+public struct DashboardAxisTick: Equatable, Sendable {
+    public let offset: TimeInterval
+    public let date: Date
+    public let label: String
+}
+
 public enum DashboardLayout {
-    public static let axisWidth: Double = 52
+    public enum HorizontalRegion: Equatable, Sendable {
+        case pinned
+        case horizontalScroll
+    }
+
+    public static let axisWidth: Double = 86
+    public static let axisRegion: HorizontalRegion = .pinned
+    public static let dayColumnsRegion: HorizontalRegion = .horizontalScroll
 
     public static func dayWidth(for range: DashboardRange) -> Double {
         switch range {
@@ -228,15 +241,46 @@ public enum DashboardLayout {
 }
 
 public enum DashboardPresentation {
+    public static func axisReferenceDay(in days: [DashboardDay]) -> DashboardDay? {
+        days.first { abs($0.duration - 86_400) > 1 } ?? days.last
+    }
+
+    public static func axisTicks(
+        offsets: [TimeInterval],
+        referenceDay: Date,
+        calendar: Calendar = .current
+    ) -> [DashboardAxisTick] {
+        let day = calendar.startOfDay(for: referenceDay)
+        let formatter = dateFormatter("HH:mm ZZZZZ", calendar: calendar)
+        return offsets.map { offset in
+            let date = day.addingTimeInterval(offset)
+            return DashboardAxisTick(
+                offset: offset,
+                date: date,
+                label: formatter.string(from: date)
+            )
+        }
+    }
+
+    public static func axisReferenceLabel(
+        for day: Date,
+        calendar: Calendar = .current
+    ) -> String {
+        "Local time\n\(dateFormatter("MMM d", calendar: calendar).string(from: day))"
+    }
+
+    public static func popoverTimestamp(
+        for date: Date,
+        calendar: Calendar = .current
+    ) -> String {
+        dateFormatter("EEE, MMM d, HH:mm:ss ZZZZZ", calendar: calendar).string(from: date)
+    }
+
     public static func accessibilityLabel(
         for segment: DashboardSegment,
         calendar: Calendar = .current
     ) -> String {
-        let formatter = DateFormatter()
-        formatter.calendar = calendar
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = calendar.timeZone
-        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss ZZZZZ"
+        let formatter = dateFormatter("yyyy-MM-dd HH:mm:ss ZZZZZ", calendar: calendar)
         return [
             segment.typeLabel,
             formatter.string(from: segment.start),
@@ -248,6 +292,18 @@ public enum DashboardPresentation {
 
     public static func accessibilityValue(for segment: DashboardSegment) -> String {
         "\(Int(segment.duration.rounded())) seconds, \(segment.isOngoing ? "ongoing" : "completed")"
+    }
+
+    private static func dateFormatter(
+        _ format: String,
+        calendar: Calendar
+    ) -> DateFormatter {
+        let formatter = DateFormatter()
+        formatter.calendar = calendar
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = calendar.timeZone
+        formatter.dateFormat = format
+        return formatter
     }
 }
 

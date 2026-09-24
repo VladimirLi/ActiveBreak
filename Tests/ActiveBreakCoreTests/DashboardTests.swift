@@ -350,12 +350,87 @@ private func date(
 }
 
 @Test func dashboardLayoutKeepsAxisPinnedAndOnlyDaysScrollable() {
-    #expect(DashboardLayout.axisWidth == 52)
+    #expect(DashboardLayout.axisWidth == 86)
+    #expect(DashboardLayout.axisRegion == .pinned)
+    #expect(DashboardLayout.dayColumnsRegion == .horizontalScroll)
     #expect(DashboardLayout.dayWidth(for: .threeDays) == 250)
     #expect(DashboardLayout.dayWidth(for: .sevenDays) == 128)
     #expect(DashboardLayout.dayWidth(for: .fourteenDays) == 72)
     #expect(DashboardLayout.scrollContentWidth(for: .fourteenDays) == 14 * 72)
     #expect(DashboardLayout.scrollContentWidth(for: .fourteenDays) > 760 - DashboardLayout.axisWidth)
+}
+
+@Test func springForwardAxisTicksUseActualLocalTime() throws {
+    var stockholm = Calendar(identifier: .gregorian)
+    stockholm.timeZone = try #require(TimeZone(identifier: "Europe/Stockholm"))
+    let day = stockholm.startOfDay(for: try #require(
+        ISO8601DateFormatter().date(from: "2026-03-29T12:00:00+02:00")
+    ))
+    let ticks = DashboardPresentation.axisTicks(
+        offsets: [0, 3_600, 7_200, 10_800],
+        referenceDay: day,
+        calendar: stockholm
+    )
+
+    #expect(ticks.map(\.label) == [
+        "00:00 +01:00",
+        "01:00 +01:00",
+        "03:00 +02:00",
+        "04:00 +02:00",
+    ])
+    #expect(ticks[2].date.timeIntervalSince(day) == 7_200)
+    #expect(DashboardPresentation.axisReferenceLabel(for: day, calendar: stockholm)
+        == "Local time\nMar 29")
+}
+
+@Test func axisReferencePrefersVisibleDaylightSavingTransitionDay() throws {
+    var stockholm = Calendar(identifier: .gregorian)
+    stockholm.timeZone = try #require(TimeZone(identifier: "Europe/Stockholm"))
+    let start = stockholm.startOfDay(for: try #require(
+        ISO8601DateFormatter().date(from: "2026-03-28T12:00:00+01:00")
+    ))
+    let end = try #require(stockholm.date(byAdding: .day, value: 3, to: start))
+    let dashboard = DashboardProjection.make(
+        records: [],
+        range: DashboardDateRange(start: start, end: end, range: .threeDays),
+        calendar: stockholm
+    )
+    let reference = try #require(DashboardPresentation.axisReferenceDay(in: dashboard.days))
+    let expected = try #require(stockholm.date(byAdding: .day, value: 1, to: start))
+
+    #expect(reference.date == expected)
+    #expect(reference.duration == 23 * 3_600)
+}
+
+@Test func fallBackAxisTicksDisambiguateRepeatedLocalHour() throws {
+    var stockholm = Calendar(identifier: .gregorian)
+    stockholm.timeZone = try #require(TimeZone(identifier: "Europe/Stockholm"))
+    let day = stockholm.startOfDay(for: try #require(
+        ISO8601DateFormatter().date(from: "2026-10-25T12:00:00+01:00")
+    ))
+    let ticks = DashboardPresentation.axisTicks(
+        offsets: [7_200, 10_800],
+        referenceDay: day,
+        calendar: stockholm
+    )
+
+    #expect(ticks.map(\.label) == ["02:00 +02:00", "02:00 +01:00"])
+    #expect(ticks[0].date < ticks[1].date)
+    #expect(ticks[1].date.timeIntervalSince(ticks[0].date) == 3_600)
+}
+
+@Test func popoverTimestampsIncludeOffsetAndDisambiguateRepeatedTime() throws {
+    var stockholm = Calendar(identifier: .gregorian)
+    stockholm.timeZone = try #require(TimeZone(identifier: "Europe/Stockholm"))
+    let first = try #require(ISO8601DateFormatter().date(from: "2026-10-25T02:15:00+02:00"))
+    let second = try #require(ISO8601DateFormatter().date(from: "2026-10-25T02:15:00+01:00"))
+
+    let firstLabel = DashboardPresentation.popoverTimestamp(for: first, calendar: stockholm)
+    let secondLabel = DashboardPresentation.popoverTimestamp(for: second, calendar: stockholm)
+
+    #expect(firstLabel == "Sun, Oct 25, 02:15:00 +02:00")
+    #expect(secondLabel == "Sun, Oct 25, 02:15:00 +01:00")
+    #expect(firstLabel != secondLabel)
 }
 
 @Test func dashboardPresentationNamesTypeAndUniqueAccessibleDetails() throws {
