@@ -134,6 +134,33 @@ private let start = Date(timeIntervalSince1970: 1_700_000_000)
     ])
 }
 
+@Test func staleFirstActivityAfterRelaunchPreservesExcludedDowntime() {
+    var reducer = TimerReducer()
+    let longThreshold = BreakSettings(workThreshold: 1_000, deadTime: 300)
+    reducer.activity(at: start, settings: longThreshold)
+    reducer.activity(at: start.addingTimeInterval(100), settings: longThreshold)
+    reducer.restore(
+        savedAt: start.addingTimeInterval(150),
+        now: start.addingTimeInterval(200)
+    )
+
+    reducer.activity(at: start.addingTimeInterval(199), settings: longThreshold)
+    #expect(reducer.state.interval?.lastActivityAt == start.addingTimeInterval(100))
+    #expect(reducer.state.interval?.excludedGaps == [
+        TimeSegment(
+            start: start.addingTimeInterval(150),
+            end: start.addingTimeInterval(200)
+        ),
+    ])
+
+    reducer.activity(at: start.addingTimeInterval(250), settings: longThreshold)
+    #expect(reducer.state.interval?.validatedActive == 200)
+    #expect(reducer.state.interval?.workSegments == [
+        TimeSegment(start: start, end: start.addingTimeInterval(150)),
+        TimeSegment(start: start.addingTimeInterval(200), end: start.addingTimeInterval(250)),
+    ])
+}
+
 @Test func longRelaunchCountsAsBreakAndClearsState() throws {
     var reducer = TimerReducer()
     reducer.activity(at: start, settings: settings)

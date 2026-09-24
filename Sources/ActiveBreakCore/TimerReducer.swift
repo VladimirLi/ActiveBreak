@@ -24,6 +24,11 @@ public struct TimerReducer: Sendable {
             return []
         }
 
+        let activityBoundary = interval.excludedGaps.reduce(interval.lastActivityAt) {
+            max($0, $1.end)
+        }
+        guard date > activityBoundary else { return [] }
+
         let gap = max(0, date.timeIntervalSince(interval.lastActivityAt))
         guard gap < interval.settings.deadTime else {
             let effects = close(interval: interval, breakEnd: date)

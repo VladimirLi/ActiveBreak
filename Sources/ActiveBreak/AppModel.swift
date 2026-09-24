@@ -96,6 +96,7 @@ final class AppModel: NSObject, ObservableObject {
         now = Date()
         if isPaused {
             reducer.resume()
+            activityDetector.baseline(at: now)
         } else {
             apply(reducer.pause(at: now))
         }
@@ -168,15 +169,20 @@ final class AppModel: NSObject, ObservableObject {
         guard ProcessInfo.processInfo.environment["ACTIVEBREAK_DISABLE_LOGIN_ITEM_MUTATION"] != "1" else {
             return
         }
+        let service = SMAppService.mainApp
         do {
-            if enabled, SMAppService.mainApp.status == .notRegistered {
-                try SMAppService.mainApp.register()
-            } else if !enabled, SMAppService.mainApp.status != .notRegistered {
-                try SMAppService.mainApp.unregister()
+            switch LaunchAtLoginPolicy.action(enabled: enabled, status: service.status.activeBreak) {
+            case .register:
+                try service.register()
+            case .unregister:
+                try service.unregister()
+            case .none:
+                break
             }
-            launchAtLoginError = enabled && SMAppService.mainApp.status == .requiresApproval
-                ? "Open System Settings to approve ActiveBreak as a login item."
-                : nil
+            launchAtLoginError = LaunchAtLoginPolicy.errorMessage(
+                enabled: enabled,
+                status: service.status.activeBreak
+            )
         } catch {
             launchAtLoginError = error.localizedDescription
         }
@@ -195,6 +201,23 @@ final class AppModel: NSObject, ObservableObject {
             persistenceError = nil
         } catch {
             persistenceError = error.localizedDescription
+        }
+    }
+}
+
+private extension SMAppService.Status {
+    var activeBreak: LaunchAtLoginStatus {
+        switch self {
+        case .notRegistered:
+            return .notRegistered
+        case .enabled:
+            return .enabled
+        case .requiresApproval:
+            return .requiresApproval
+        case .notFound:
+            return .notFound
+        @unknown default:
+            return .notFound
         }
     }
 }

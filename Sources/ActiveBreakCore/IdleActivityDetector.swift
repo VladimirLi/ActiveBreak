@@ -13,6 +13,10 @@ public struct IdleActivityDetector: Sendable {
         self.initialActivityWindow = initialActivityWindow
     }
 
+    public mutating func baseline(at date: Date) {
+        lastEventAt = date
+    }
+
     public mutating func activityDate(now: Date, idleSeconds: TimeInterval) -> Date? {
         let idle = max(0, idleSeconds)
         let eventAt = now.addingTimeInterval(-idle)
@@ -23,6 +27,49 @@ public struct IdleActivityDetector: Sendable {
         guard eventAt.timeIntervalSince(previous) > timestampTolerance else { return nil }
         lastEventAt = eventAt
         return eventAt
+    }
+}
+
+public enum LaunchAtLoginStatus: Sendable {
+    case notRegistered
+    case enabled
+    case requiresApproval
+    case notFound
+}
+
+public enum LaunchAtLoginAction: Equatable, Sendable {
+    case none
+    case register
+    case unregister
+}
+
+public enum LaunchAtLoginPolicy {
+    public static func action(
+        enabled: Bool,
+        status: LaunchAtLoginStatus
+    ) -> LaunchAtLoginAction {
+        switch (enabled, status) {
+        case (true, .notRegistered):
+            return .register
+        case (false, .enabled), (false, .requiresApproval):
+            return .unregister
+        default:
+            return .none
+        }
+    }
+
+    public static func errorMessage(
+        enabled: Bool,
+        status: LaunchAtLoginStatus
+    ) -> String? {
+        switch status {
+        case .notFound:
+            return "ActiveBreak could not be found by macOS Login Items."
+        case .requiresApproval where enabled:
+            return "Open System Settings to approve ActiveBreak as a login item."
+        default:
+            return nil
+        }
     }
 }
 

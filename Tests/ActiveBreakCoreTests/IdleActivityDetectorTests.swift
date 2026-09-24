@@ -30,6 +30,47 @@ import Testing
     #expect(abs(reducer.state.interval!.validatedActive - 299.9) < 0.001)
 }
 
+@Test func resumeBaselineSuppressesResumeClickButAllowsLaterActivity() {
+    let start = Date(timeIntervalSince1970: 1_700_000_000)
+    var detector = IdleActivityDetector()
+    var reducer = TimerReducer(state: TimerState(mode: .paused))
+    let settings = BreakSettings()
+
+    reducer.resume()
+    detector.baseline(at: start)
+    let resumeClick = detector.activityDate(
+        now: start.addingTimeInterval(1),
+        idleSeconds: 1
+    )
+    #expect(resumeClick == nil)
+    #expect(reducer.state.mode == .idle)
+
+    let laterActivity = detector.activityDate(
+        now: start.addingTimeInterval(2),
+        idleSeconds: 0.25
+    )
+    #expect(laterActivity == start.addingTimeInterval(1.75))
+    reducer.activity(at: laterActivity!, settings: settings)
+    #expect(reducer.state.mode == .active)
+}
+
+@Test func launchAtLoginPolicyHandlesEveryKnownStatus() {
+    #expect(LaunchAtLoginPolicy.action(enabled: true, status: .notRegistered) == .register)
+    #expect(LaunchAtLoginPolicy.action(enabled: true, status: .enabled) == .none)
+    #expect(LaunchAtLoginPolicy.action(enabled: true, status: .requiresApproval) == .none)
+    #expect(LaunchAtLoginPolicy.action(enabled: true, status: .notFound) == .none)
+    #expect(LaunchAtLoginPolicy.action(enabled: false, status: .notRegistered) == .none)
+    #expect(LaunchAtLoginPolicy.action(enabled: false, status: .enabled) == .unregister)
+    #expect(LaunchAtLoginPolicy.action(enabled: false, status: .requiresApproval) == .unregister)
+    #expect(LaunchAtLoginPolicy.action(enabled: false, status: .notFound) == .none)
+    #expect(LaunchAtLoginPolicy.errorMessage(enabled: true, status: .requiresApproval)
+        == "Open System Settings to approve ActiveBreak as a login item.")
+    #expect(LaunchAtLoginPolicy.errorMessage(enabled: true, status: .notFound)
+        == "ActiveBreak could not be found by macOS Login Items.")
+    #expect(LaunchAtLoginPolicy.errorMessage(enabled: false, status: .notFound)
+        == "ActiveBreak could not be found by macOS Login Items.")
+}
+
 @Test func stateFileOverrideDoesNotUseApplicationSupport() {
     let support = URL(fileURLWithPath: "/Users/example/Library/Application Support")
     let override = "/tmp/activebreak-test/state.json"
