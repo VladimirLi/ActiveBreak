@@ -28,9 +28,10 @@ public struct DashboardDateRange: Equatable, Sendable {
         today: Date = .now,
         calendar: Calendar = .current
     ) {
-        let todayStart = calendar.startOfDay(for: today)
-        let requestedEnd = calendar.startOfDay(for: endDate)
-        let lastDay = min(requestedEnd, todayStart)
+        let lastDay = min(
+            calendar.startOfDay(for: endDate),
+            calendar.startOfDay(for: today)
+        )
         start = calendar.date(byAdding: .day, value: 1 - range.dayCount, to: lastDay)!
         end = calendar.date(byAdding: .day, value: 1, to: lastDay)!
         self.range = range
@@ -42,10 +43,9 @@ public struct DashboardDateRange: Equatable, Sendable {
         calendar: Calendar = .current
     ) -> DashboardDateRange {
         let currentLastDay = calendar.date(byAdding: .day, value: -1, to: end)!
-        let requested = calendar.date(byAdding: .day, value: days, to: currentLastDay)!
         return DashboardDateRange(
             range: range,
-            endingAt: requested,
+            endingAt: calendar.date(byAdding: .day, value: days, to: currentLastDay)!,
             today: today,
             calendar: calendar
         )
@@ -68,6 +68,7 @@ public struct DashboardSegmentID: Hashable, Sendable {
     public let start: Date
     public let end: Date
     public let isOvertime: Bool
+    public let isOngoing: Bool
 }
 
 public struct DashboardSegment: Identifiable, Equatable, Sendable {
@@ -76,107 +77,178 @@ public struct DashboardSegment: Identifiable, Equatable, Sendable {
     public let start: Date
     public let end: Date
     public let isOvertime: Bool
-    public let startMinute: Double
-    public let endMinute: Double
+    public let isOngoing: Bool
+    public let startOffset: TimeInterval
+    public let endOffset: TimeInterval
 
     public var duration: TimeInterval { max(0, end.timeIntervalSince(start)) }
+    public var typeLabel: String { isOvertime ? "Overtime" : "Active work" }
 
     init(
         recordID: UUID,
         start: Date,
         end: Date,
         isOvertime: Bool,
-        startMinute: Double,
-        endMinute: Double
+        isOngoing: Bool,
+        startOffset: TimeInterval,
+        endOffset: TimeInterval
     ) {
         id = DashboardSegmentID(
             recordID: recordID,
             start: start,
             end: end,
-            isOvertime: isOvertime
+            isOvertime: isOvertime,
+            isOngoing: isOngoing
         )
         self.recordID = recordID
         self.start = start
         self.end = end
         self.isOvertime = isOvertime
-        self.startMinute = startMinute
-        self.endMinute = endMinute
+        self.isOngoing = isOngoing
+        self.startOffset = startOffset
+        self.endOffset = endOffset
     }
 }
 
 public struct DashboardTimeBand: Equatable, Sendable {
-    public let startMinute: Double
-    public let endMinute: Double
+    public let startOffset: TimeInterval
+    public let endOffset: TimeInterval
     public let isCompressed: Bool
 }
 
 public struct DashboardTimeScale: Equatable, Sendable {
-    public let expandedStartMinute: Double
-    public let expandedEndMinute: Double
+    public let expandedStartOffset: TimeInterval
+    public let expandedEndOffset: TimeInterval
     public let bands: [DashboardTimeBand]
 
-    private static let compressedLength: Double = 24
+    private static let compressedLength: TimeInterval = 24 * 60
 
-    public static func make(segments: [DashboardSegment]) -> DashboardTimeScale {
-        let earliest = segments.map(\.startMinute).min() ?? 8 * 60
-        let latest = segments.map(\.endMinute).max() ?? 18 * 60
-        let expandedStart = max(0, floor(earliest / 60) * 60 - 60)
-        let expandedEnd = min(24 * 60, ceil(latest / 60) * 60 + 60)
+    static func make(
+        segments: [DashboardSegment],
+        maximumDayDuration: TimeInterval
+    ) -> DashboardTimeScale {
+        let earliest = segments.map(\.startOffset).min() ?? 8 * 60 * 60
+        let latest = segments.map(\.endOffset).max() ?? 18 * 60 * 60
+        let expandedStart = max(0, floor(earliest / 3_600) * 3_600 - 3_600)
+        let expandedEnd = min(
+            maximumDayDuration,
+            ceil(latest / 3_600) * 3_600 + 3_600
+        )
         var bands: [DashboardTimeBand] = []
         if expandedStart > 0 {
             bands.append(DashboardTimeBand(
-                startMinute: 0,
-                endMinute: expandedStart,
+                startOffset: 0,
+                endOffset: expandedStart,
                 isCompressed: true
             ))
         }
         bands.append(DashboardTimeBand(
-            startMinute: expandedStart,
-            endMinute: expandedEnd,
+            startOffset: expandedStart,
+            endOffset: expandedEnd,
             isCompressed: false
         ))
-        if expandedEnd < 24 * 60 {
+        if expandedEnd < maximumDayDuration {
             bands.append(DashboardTimeBand(
-                startMinute: expandedEnd,
-                endMinute: 24 * 60,
+                startOffset: expandedEnd,
+                endOffset: maximumDayDuration,
                 isCompressed: true
             ))
         }
         return DashboardTimeScale(
-            expandedStartMinute: expandedStart,
-            expandedEndMinute: expandedEnd,
+            expandedStartOffset: expandedStart,
+            expandedEndOffset: expandedEnd,
             bands: bands
         )
     }
 
-    public func position(for minute: Double) -> Double {
-        let clamped = min(max(0, minute), 24 * 60)
+    public func position(for offset: TimeInterval) -> Double {
+        let maximum = bands.last?.endOffset ?? 0
+        let clamped = min(max(0, offset), maximum)
         let total = bands.reduce(0) { $0 + displayLength($1) }
         guard total > 0 else { return 0 }
-        var offset = 0.0
+        var displayedOffset = 0.0
         for band in bands {
             let length = displayLength(band)
-            if clamped <= band.endMinute {
-                let fraction = band.endMinute == band.startMinute
+            if clamped <= band.endOffset {
+                let fraction = band.endOffset == band.startOffset
                     ? 0
-                    : (clamped - band.startMinute) / (band.endMinute - band.startMinute)
-                return (offset + min(max(0, fraction), 1) * length) / total
+                    : (clamped - band.startOffset) / (band.endOffset - band.startOffset)
+                return (displayedOffset + min(max(0, fraction), 1) * length) / total
             }
-            offset += length
+            displayedOffset += length
         }
         return 1
     }
 
-    private func displayLength(_ band: DashboardTimeBand) -> Double {
-        band.isCompressed ? Self.compressedLength : band.endMinute - band.startMinute
+    private func displayLength(_ band: DashboardTimeBand) -> TimeInterval {
+        band.isCompressed ? Self.compressedLength : band.endOffset - band.startOffset
     }
 }
 
 public struct DashboardDay: Identifiable, Equatable, Sendable {
     public var id: Date { date }
     public let date: Date
+    public let duration: TimeInterval
     public let segments: [DashboardSegment]
     public let scale: DashboardTimeScale
+}
+
+public struct DashboardSegmentFrame: Equatable, Sendable {
+    public let y: Double
+    public let height: Double
+}
+
+public enum DashboardLayout {
+    public static let axisWidth: Double = 52
+
+    public static func dayWidth(for range: DashboardRange) -> Double {
+        switch range {
+        case .threeDays:
+            return 250
+        case .sevenDays:
+            return 128
+        case .fourteenDays:
+            return 72
+        }
+    }
+
+    public static func scrollContentWidth(for range: DashboardRange) -> Double {
+        dayWidth(for: range) * Double(range.dayCount)
+    }
+
+    public static func segmentFrame(
+        _ segment: DashboardSegment,
+        scale: DashboardTimeScale,
+        height: Double
+    ) -> DashboardSegmentFrame {
+        let top = scale.position(for: segment.startOffset) * height
+        let bottom = scale.position(for: segment.endOffset) * height
+        return DashboardSegmentFrame(y: top, height: max(0, bottom - top))
+    }
+}
+
+public enum DashboardPresentation {
+    public static func accessibilityLabel(
+        for segment: DashboardSegment,
+        calendar: Calendar = .current
+    ) -> String {
+        let formatter = DateFormatter()
+        formatter.calendar = calendar
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = calendar.timeZone
+        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss ZZZZZ"
+        return [
+            segment.typeLabel,
+            formatter.string(from: segment.start),
+            "to \(formatter.string(from: segment.end))",
+            "\(Int(segment.duration.rounded())) seconds",
+            segment.isOngoing ? "ongoing" : "completed",
+        ].joined(separator: ", ")
+    }
+
+    public static func accessibilityValue(for segment: DashboardSegment) -> String {
+        "\(Int(segment.duration.rounded())) seconds, \(segment.isOngoing ? "ongoing" : "completed")"
+    }
 }
 
 public struct DashboardProjection: Equatable, Sendable {
@@ -185,53 +257,89 @@ public struct DashboardProjection: Equatable, Sendable {
     public let scale: DashboardTimeScale
     public let activeDuration: TimeInterval
     public let overtimeDuration: TimeInterval
-    public let longestStretch: TimeInterval
+    public let longestStretch: TimeInterval?
     public let mostActiveHour: Int?
 
     public static func make(
         records: [HistoryRecord],
+        currentInterval: ActiveInterval? = nil,
         range: DashboardDateRange,
         calendar: Calendar = .current
     ) -> DashboardProjection {
+        var dayStarts: [(date: Date, duration: TimeInterval)] = []
+        var day = range.start
+        while day < range.end {
+            let next = calendar.date(byAdding: .day, value: 1, to: day)!
+            dayStarts.append((day, next.timeIntervalSince(day)))
+            day = next
+        }
+
         var segmentsByDay: [Date: [DashboardSegment]] = [:]
-        var durationByRecord: [UUID: TimeInterval] = [:]
+        var durationByCompletedRecord: [UUID: TimeInterval] = [:]
         var hourlyDuration = Array(repeating: TimeInterval(0), count: 24)
 
-        for record in records {
-            for segment in record.workSegments {
+        func project(
+            id: UUID,
+            segments: [TimeSegment],
+            isOngoing: Bool,
+            countsForLongest: Bool
+        ) {
+            for segment in segments {
                 guard let clipped = clip(segment, from: range.start, before: range.end) else {
                     continue
                 }
                 for part in HistoryAggregator.split(clipped, calendar: calendar) {
                     let day = calendar.startOfDay(for: part.start)
                     let dashboardSegment = DashboardSegment(
-                        recordID: record.id,
+                        recordID: id,
                         start: part.start,
                         end: part.end,
                         isOvertime: part.isOvertime,
-                        startMinute: minute(of: part.start, on: day, calendar: calendar),
-                        endMinute: minute(of: part.end, on: day, calendar: calendar)
+                        isOngoing: isOngoing,
+                        startOffset: part.start.timeIntervalSince(day),
+                        endOffset: part.end.timeIntervalSince(day)
                     )
                     segmentsByDay[day, default: []].append(dashboardSegment)
-                    durationByRecord[record.id, default: 0] += part.duration
+                    if countsForLongest {
+                        durationByCompletedRecord[id, default: 0] += part.duration
+                    }
                     add(part, to: &hourlyDuration, calendar: calendar)
                 }
             }
         }
 
+        for record in records {
+            project(
+                id: record.id,
+                segments: record.workSegments,
+                isOngoing: false,
+                countsForLongest: true
+            )
+        }
+        let completedIDs = Set(records.map(\.id))
+        if let currentInterval, !completedIDs.contains(currentInterval.id) {
+            project(
+                id: currentInterval.id,
+                segments: currentInterval.workSegments,
+                isOngoing: true,
+                countsForLongest: false
+            )
+        }
+
         let allSegments = segmentsByDay.values.flatMap { $0 }
-        let scale = DashboardTimeScale.make(segments: allSegments)
-        var days: [DashboardDay] = []
-        var day = range.start
-        while day < range.end {
-            days.append(DashboardDay(
-                date: day,
-                segments: (segmentsByDay[day] ?? []).sorted {
+        let scale = DashboardTimeScale.make(
+            segments: allSegments,
+            maximumDayDuration: dayStarts.map(\.duration).max() ?? 24 * 60 * 60
+        )
+        let days = dayStarts.map { day in
+            DashboardDay(
+                date: day.date,
+                duration: day.duration,
+                segments: (segmentsByDay[day.date] ?? []).sorted {
                     $0.start == $1.start ? $0.end < $1.end : $0.start < $1.start
                 },
                 scale: scale
-            ))
-            day = calendar.date(byAdding: .day, value: 1, to: day)!
+            )
         }
 
         return DashboardProjection(
@@ -240,7 +348,7 @@ public struct DashboardProjection: Equatable, Sendable {
             scale: scale,
             activeDuration: allSegments.reduce(0) { $0 + $1.duration },
             overtimeDuration: allSegments.filter(\.isOvertime).reduce(0) { $0 + $1.duration },
-            longestStretch: durationByRecord.values.max() ?? 0,
+            longestStretch: durationByCompletedRecord.values.max(),
             mostActiveHour: hourlyDuration.max().flatMap { maximum in
                 maximum > 0 ? hourlyDuration.firstIndex(of: maximum) : nil
             }
@@ -262,20 +370,6 @@ public struct DashboardProjection: Equatable, Sendable {
         )
     }
 
-    private static func minute(
-        of date: Date,
-        on day: Date,
-        calendar: Calendar
-    ) -> Double {
-        let nextDay = calendar.date(byAdding: .day, value: 1, to: day)!
-        if date >= nextDay { return 24 * 60 }
-        let components = calendar.dateComponents([.hour, .minute, .second, .nanosecond], from: date)
-        return Double(components.hour ?? 0) * 60
-            + Double(components.minute ?? 0)
-            + Double(components.second ?? 0) / 60
-            + Double(components.nanosecond ?? 0) / 60_000_000_000
-    }
-
     private static func add(
         _ segment: TimeSegment,
         to hourlyDuration: inout [TimeInterval],
@@ -284,10 +378,7 @@ public struct DashboardProjection: Equatable, Sendable {
         var cursor = segment.start
         while cursor < segment.end {
             let hour = calendar.component(.hour, from: cursor)
-            let boundary = min(
-                calendar.dateInterval(of: .hour, for: cursor)!.end,
-                segment.end
-            )
+            let boundary = min(calendar.dateInterval(of: .hour, for: cursor)!.end, segment.end)
             hourlyDuration[hour] += boundary.timeIntervalSince(cursor)
             cursor = boundary
         }

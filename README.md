@@ -83,13 +83,19 @@ Dashboard shows a 3, 7, or 14 day activity timeline, defaulting to 7 days.
 Days are aligned left to right on one shared vertical local-time scale. Empty
 hours before and after all visible activity are compressed, while unusual-hour
 activity expands the shared scale for every day. Blue blocks are validated
-work, red blocks are overtime, and breaks remain empty. Select a block to see
-its exact start, end, duration, and overtime status.
+work, red blocks are overtime, dashed outlines identify the current ongoing
+interval, and breaks remain empty. The ongoing interval includes validated
+segments only; unresolved provisional time is excluded until later activity
+validates it. Select a block to see its exact start, end, duration, work type,
+and completion status.
 
 The summary reports exact visible active time and overtime, the longest visible
-completed interval, and the local hour containing the most active time. Ties
-for most active hour choose the earlier hour. Previous, Today, and next controls
-navigate by the selected range, and next never moves beyond today.
+completed interval, and the local hour containing the most active time. Ongoing
+validated work contributes to active and overtime totals but not the completed
+interval metric. Ties for most active hour choose the earlier hour. Previous,
+Today, and next controls navigate by the selected range, and next never moves
+beyond today. The time geometry uses exact elapsed time from each local
+midnight, so daylight-saving transitions retain their real duration and order.
 
 CSV and JSON exports use the visible calendar-day range, represented as a
 half-open interval ending at the next local midnight. Absolute timestamps are

@@ -138,6 +138,9 @@ final class AppModel: NSObject, ObservableObject {
 
     var settings: BreakSettings { data.settings }
     var history: [HistoryRecord] { data.history }
+    var currentInterval: ActiveInterval? {
+        reducer.state.mode == .active ? reducer.state.interval : nil
+    }
     var isPaused: Bool { reducer.state.mode == .paused }
     var remaining: TimeInterval { reducer.remaining(at: now, defaultSettings: data.settings) }
     var isOverdue: Bool { reducer.state.mode == .active && remaining <= 0 }

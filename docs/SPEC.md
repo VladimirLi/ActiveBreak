@@ -91,6 +91,21 @@ completed interval contribution, and the local hour containing the greatest
 active duration. Most-active-hour ties MUST choose the earlier hour and an
 empty selection MUST show no hour.
 
+The dashboard MUST include validated segments from the current active interval
+without appending them to history or duplicating a record after closure. Those
+segments MUST be identified as ongoing. Unresolved provisional time MUST remain
+excluded until later activity validates it. Ongoing validated work contributes
+to active and overtime totals but MUST NOT contribute to the longest completed
+interval metric.
+
+Timeline geometry MUST use exact elapsed time from each local midnight rather
+than hour/minute components. Spring-forward and repeated fall-back hours MUST
+retain exact duration and chronological order. Day headers MUST identify
+non-24-hour days, block details and accessibility text MUST use explicit local
+timestamps, and the shared time axis MUST remain pinned while only day columns
+scroll horizontally. Every block's accessibility text MUST include date,
+start, end, duration, work type, and ongoing/completed status.
+
 Date navigation MUST provide previous, Today, and next controls. Navigation
 MUST move by the selected range and MUST NOT advance beyond today. Changing
 range MUST preserve the visible end date where possible. Export and confirmed

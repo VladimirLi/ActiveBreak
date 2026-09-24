@@ -89,6 +89,7 @@ struct DashboardView: View {
     private var dashboard: DashboardProjection {
         DashboardProjection.make(
             records: model.history,
+            currentInterval: model.currentInterval,
             range: dateRange,
             calendar: .current
         )
@@ -161,7 +162,10 @@ struct DashboardView: View {
                 Divider()
                 MetricView(title: "Overtime", value: duration(dashboard.overtimeDuration))
                 Divider()
-                MetricView(title: "Longest stretch", value: duration(dashboard.longestStretch))
+                MetricView(
+                    title: "Longest completed",
+                    value: dashboard.longestStretch.map(duration) ?? "-"
+                )
                 Divider()
                 MetricView(title: "Most active", value: mostActiveHour(dashboard.mostActiveHour))
             }
@@ -181,6 +185,7 @@ struct DashboardView: View {
                     HStack(spacing: 16) {
                         LegendItem(color: .blue, title: "Active work")
                         LegendItem(color: .red, title: "Overtime")
+                        LegendItem(color: .secondary, title: "Ongoing", outlined: true)
                         Label("Compressed empty hours", systemImage: "ellipsis")
                             .foregroundStyle(.secondary)
                     }
@@ -268,13 +273,18 @@ private struct MetricView: View {
 private struct LegendItem: View {
     let color: Color
     let title: String
+    var outlined = false
 
     var body: some View {
         Label {
             Text(title)
         } icon: {
             RoundedRectangle(cornerRadius: 2)
-                .fill(color)
+                .fill(outlined ? Color.clear : color)
+                .stroke(
+                    outlined ? color : Color.clear,
+                    style: StrokeStyle(lineWidth: 1, dash: outlined ? [2, 2] : [])
+                )
                 .frame(width: 9, height: 9)
         }
         .foregroundStyle(.secondary)
@@ -285,71 +295,75 @@ private struct ActivityTimelineView: View {
     let dashboard: DashboardProjection
     @Binding var selectedSegment: DashboardSegment?
 
-    private let axisWidth: CGFloat = 52
     private let timelineHeight: CGFloat = 350
 
     private var dayWidth: CGFloat {
-        switch dashboard.range.range {
-        case .threeDays:
-            return 250
-        case .sevenDays:
-            return 128
-        case .fourteenDays:
-            return 72
-        }
+        DashboardLayout.dayWidth(for: dashboard.range.range)
     }
 
-    private var tickMinutes: [Int] {
-        let first = Int(ceil(dashboard.scale.expandedStartMinute / 120) * 120)
-        let last = Int(floor(dashboard.scale.expandedEndMinute / 120) * 120)
+    private var tickOffsets: [Int] {
+        let first = Int(ceil(dashboard.scale.expandedStartOffset / 7_200) * 7_200)
+        let last = Int(floor(dashboard.scale.expandedEndOffset / 7_200) * 7_200)
         guard first <= last else { return [] }
-        return Array(stride(from: first, through: last, by: 120))
+        return Array(stride(from: first, through: last, by: 7_200))
     }
 
     var body: some View {
-        ScrollView(.horizontal) {
+        HStack(alignment: .top, spacing: 0) {
             VStack(spacing: 0) {
-                HStack(spacing: 0) {
-                    Color.clear.frame(width: axisWidth, height: 42)
-                    ForEach(dashboard.days) { day in
-                        VStack(spacing: 1) {
-                            Text(day.date, format: .dateTime.weekday(.abbreviated))
-                                .font(.caption.weight(.semibold))
-                            Text(day.date, format: .dateTime.day())
+                Color.clear.frame(height: 42)
+                Divider()
+                TimelineAxis(
+                    scale: dashboard.scale,
+                    tickOffsets: tickOffsets,
+                    height: timelineHeight
+                )
+                .frame(height: timelineHeight)
+            }
+            .frame(width: DashboardLayout.axisWidth)
+
+            ScrollView(.horizontal) {
+                VStack(spacing: 0) {
+                    HStack(spacing: 0) {
+                        ForEach(dashboard.days) { day in
+                            VStack(spacing: 1) {
+                                Text(day.date, format: .dateTime.weekday(.abbreviated))
+                                    .font(.caption.weight(.semibold))
+                                HStack(spacing: 3) {
+                                    Text(day.date, format: .dateTime.day())
+                                    if abs(day.duration - 86_400) > 1 {
+                                        Text("\(Int(day.duration / 3_600))h")
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
+                            }
+                            .frame(width: dayWidth, height: 42)
+                            .overlay(alignment: .leading) { Divider() }
                         }
-                        .frame(width: dayWidth, height: 42)
-                        .overlay(alignment: .leading) { Divider() }
+                    }
+
+                    Divider()
+
+                    HStack(spacing: 0) {
+                        ForEach(dashboard.days) { day in
+                            TimelineDayColumn(
+                                day: day,
+                                tickOffsets: tickOffsets,
+                                width: dayWidth,
+                                height: timelineHeight,
+                                selectedSegment: $selectedSegment
+                            )
+                        }
                     }
                 }
-
-                Divider()
-
-                HStack(spacing: 0) {
-                    TimelineAxis(
-                        scale: dashboard.scale,
-                        tickMinutes: tickMinutes,
-                        height: timelineHeight
-                    )
-                    .frame(width: axisWidth, height: timelineHeight)
-
-                    ForEach(dashboard.days) { day in
-                        TimelineDayColumn(
-                            day: day,
-                            tickMinutes: tickMinutes,
-                            width: dayWidth,
-                            height: timelineHeight,
-                            selectedSegment: $selectedSegment
-                        )
-                    }
-                }
+                .frame(width: DashboardLayout.scrollContentWidth(for: dashboard.range.range))
             }
-            .frame(width: axisWidth + dayWidth * CGFloat(dashboard.days.count))
-            .overlay {
-                Rectangle()
-                    .stroke(.separator, lineWidth: 1)
-            }
+        }
+        .overlay {
+            Rectangle()
+                .stroke(.separator, lineWidth: 1)
         }
         .popover(item: $selectedSegment, arrowEdge: .trailing) { segment in
             ActivityPopover(segment: segment)
@@ -359,30 +373,30 @@ private struct ActivityTimelineView: View {
 
 private struct TimelineAxis: View {
     let scale: DashboardTimeScale
-    let tickMinutes: [Int]
+    let tickOffsets: [Int]
     let height: CGFloat
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
-            ForEach(tickMinutes, id: \.self) { minute in
-                Text(String(format: "%02d:00", minute / 60))
+            ForEach(tickOffsets, id: \.self) { offset in
+                Text(String(format: "%02d:00", offset / 3_600))
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                     .monospacedDigit()
                     .position(
                         x: 23,
-                        y: scale.position(for: Double(minute)) * height
+                        y: scale.position(for: Double(offset)) * height
                     )
             }
-            ForEach(scale.bands.filter(\.isCompressed), id: \.startMinute) { band in
+            ForEach(scale.bands.filter(\.isCompressed), id: \.startOffset) { band in
                 Image(systemName: "ellipsis")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
                     .position(
                         x: 26,
                         y: (
-                            scale.position(for: band.startMinute)
-                                + scale.position(for: band.endMinute)
+                            scale.position(for: band.startOffset)
+                                + scale.position(for: band.endOffset)
                         ) * height / 2
                     )
             }
@@ -392,7 +406,7 @@ private struct TimelineAxis: View {
 
 private struct TimelineDayColumn: View {
     let day: DashboardDay
-    let tickMinutes: [Int]
+    let tickOffsets: [Int]
     let width: CGFloat
     let height: CGFloat
     @Binding var selectedSegment: DashboardSegment?
@@ -402,19 +416,19 @@ private struct TimelineDayColumn: View {
             Rectangle()
                 .fill(Color.primary.opacity(0.015))
 
-            ForEach(tickMinutes, id: \.self) { minute in
+            ForEach(tickOffsets, id: \.self) { offset in
                 Rectangle()
                     .fill(Color.secondary.opacity(0.16))
                     .frame(height: 1)
                     .position(
                         x: width / 2,
-                        y: day.scale.position(for: Double(minute)) * height
+                        y: day.scale.position(for: Double(offset)) * height
                     )
             }
 
-            ForEach(day.scale.bands.filter(\.isCompressed), id: \.startMinute) { band in
-                let top = day.scale.position(for: band.startMinute)
-                let bottom = day.scale.position(for: band.endMinute)
+            ForEach(day.scale.bands.filter(\.isCompressed), id: \.startOffset) { band in
+                let top = day.scale.position(for: band.startOffset)
+                let bottom = day.scale.position(for: band.endOffset)
                 Rectangle()
                     .fill(Color.secondary.opacity(0.07))
                     .overlay {
@@ -432,8 +446,11 @@ private struct TimelineDayColumn: View {
             }
 
             ForEach(day.segments) { segment in
-                let top = day.scale.position(for: segment.startMinute)
-                let bottom = day.scale.position(for: segment.endMinute)
+                let frame = DashboardLayout.segmentFrame(
+                    segment,
+                    scale: day.scale,
+                    height: height
+                )
                 Button {
                     selectedSegment = segment
                 } label: {
@@ -441,20 +458,31 @@ private struct TimelineDayColumn: View {
                         .fill(segment.isOvertime ? Color.red : Color.blue)
                         .overlay {
                             RoundedRectangle(cornerRadius: 3)
-                                .stroke(Color.white.opacity(0.25), lineWidth: 1)
+                                .stroke(
+                                    Color.primary.opacity(segment.isOngoing ? 0.7 : 0.18),
+                                    style: StrokeStyle(
+                                        lineWidth: segment.isOngoing ? 1.5 : 1,
+                                        dash: segment.isOngoing ? [3, 2] : []
+                                    )
+                                )
                         }
                 }
                 .buttonStyle(.plain)
                 .frame(
                     width: max(18, width - 20),
-                    height: max(5, (bottom - top) * height)
+                    height: max(5, frame.height)
                 )
                 .position(
                     x: width / 2,
-                    y: (top + bottom) * height / 2
+                    y: frame.y + frame.height / 2
                 )
-                .help(segment.isOvertime ? "Overtime" : "Active work")
-                .accessibilityLabel(segment.isOvertime ? "Overtime block" : "Active work block")
+                .help(segment.isOngoing ? "\(segment.typeLabel), ongoing" : segment.typeLabel)
+                .accessibilityLabel(
+                    DashboardPresentation.accessibilityLabel(for: segment, calendar: .current)
+                )
+                .accessibilityValue(
+                    DashboardPresentation.accessibilityValue(for: segment)
+                )
             }
         }
         .frame(width: width, height: height)
@@ -481,12 +509,17 @@ private struct ActivityPopover: View {
                 Text(Duration.seconds(segment.duration).formatted(.time(pattern: .hourMinuteSecond)))
                     .monospacedDigit()
             }
-            if segment.isOvertime {
-                GridRow {
-                    Text("Type").foregroundStyle(.secondary)
-                    Label("Overtime", systemImage: "exclamationmark.circle.fill")
-                        .foregroundStyle(.red)
-                }
+            GridRow {
+                Text("Type").foregroundStyle(.secondary)
+                Label(
+                    segment.typeLabel,
+                    systemImage: segment.isOvertime ? "exclamationmark.circle.fill" : "clock.fill"
+                )
+                .foregroundStyle(segment.isOvertime ? .red : .blue)
+            }
+            GridRow {
+                Text("Status").foregroundStyle(.secondary)
+                Text(segment.isOngoing ? "Ongoing" : "Completed")
             }
         }
         .font(.callout)
