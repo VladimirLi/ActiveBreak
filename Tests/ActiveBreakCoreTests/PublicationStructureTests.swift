@@ -12,6 +12,6 @@ import Testing
     )
 
     #expect(!appModel.contains("@Published private(set) var now"))
-    #expect(appModel.contains("PersistenceCadence"))
+    #expect(appModel.contains("PersistenceController"))
     #expect(appModel.contains("status.update"))
 }

@@ -62,3 +62,67 @@ public struct PersistenceCadence: Sendable {
         lastSavedAt = nil
     }
 }
+
+public enum PersistenceResult: Equatable, Sendable {
+    case persisted
+    case skipped
+    case blocked
+    case failed(type: String, message: String)
+
+    public var outcome: String {
+        switch self {
+        case .persisted:
+            return "persisted"
+        case .skipped:
+            return "skipped"
+        case .blocked:
+            return "blocked"
+        case .failed:
+            return "failed"
+        }
+    }
+
+    public var failureType: String? {
+        if case let .failed(type, _) = self { return type }
+        return nil
+    }
+
+    public var failureMessage: String? {
+        if case let .failed(_, message) = self { return message }
+        return nil
+    }
+}
+
+public struct PersistenceController: Sendable {
+    private var cadence: PersistenceCadence
+
+    public init(checkpointInterval: TimeInterval = 60, lastSavedAt: Date? = nil) {
+        cadence = PersistenceCadence(
+            checkpointInterval: checkpointInterval,
+            lastSavedAt: lastSavedAt
+        )
+    }
+
+    public mutating func save(
+        at date: Date,
+        changed: Bool,
+        force: Bool = false,
+        blocked: Bool,
+        operation: () throws -> Void
+    ) -> PersistenceResult {
+        guard !blocked else { return .blocked }
+        guard cadence.shouldSave(at: date, changed: changed, force: force) else {
+            return .skipped
+        }
+        do {
+            try operation()
+            return .persisted
+        } catch {
+            cadence.markSaveFailed()
+            return .failed(
+                type: String(reflecting: type(of: error)),
+                message: error.localizedDescription
+            )
+        }
+    }
+}

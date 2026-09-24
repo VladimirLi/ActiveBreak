@@ -144,8 +144,9 @@ swift build -c release --disable-sandbox
 Add `--candidate .build/repaired-state.json` to write a separate repaired copy
 for review or a second idempotency preview. `--apply` is deliberately explicit:
 it creates a timestamped backup beside the original, atomically replaces the
-state, and validates the result. Keep the backup until the repaired history has
-been reviewed.
+state, and validates the result. State, candidate, and manifest paths must not
+refer to the same file through direct, normalized, symbolic-link, or hard-link
+paths. Keep the backup until the repaired history has been reviewed.
 
 ## Architecture
 

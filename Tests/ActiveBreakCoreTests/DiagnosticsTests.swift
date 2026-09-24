@@ -39,3 +39,107 @@ import Testing
         !["key", "keystroke", "pointer", "coordinates", "appName", "windowTitle"].contains($0)
     })
 }
+
+@Test func pureDeadTimeDiagnosticUsesClosedIntervalAndRecord() throws {
+    let start = Date(timeIntervalSince1970: 1_700_000_000)
+    let intervalID = UUID()
+    let settings = BreakSettings(workThreshold: 120, deadTime: 300)
+    let interval = ActiveInterval(
+        id: intervalID,
+        startedAt: start,
+        lastActivityAt: start.addingTimeInterval(40),
+        workSegments: [TimeSegment(start: start, end: start.addingTimeInterval(40))],
+        settings: settings
+    )
+    var reducer = TimerReducer(state: TimerState(mode: .active, interval: interval))
+    var detector = IdleActivityDetector()
+    detector.baseline(at: interval.lastActivityAt)
+    let now = interval.lastActivityAt.addingTimeInterval(300)
+
+    let sample = PermissionlessHIDPolicy.processSample(
+        now: now,
+        idleSeconds: 300,
+        detector: &detector,
+        reducer: &reducer,
+        settings: BreakSettings(workThreshold: 999, deadTime: 999)
+    )
+    let event = TimerDiagnosticBuilder.sample(
+        sample,
+        now: now,
+        idleSeconds: 300,
+        defaultSettings: BreakSettings(workThreshold: 999, deadTime: 999),
+        context: "poll"
+    )
+
+    #expect(event.reason == "dead-time")
+    #expect(event.threshold == 120)
+    #expect(event.deadTime == 300)
+    #expect(event.validated == 40)
+    #expect(event.provisional == 340)
+    #expect(event.overtime == 0)
+    #expect(event.recordID == intervalID)
+}
+
+@Test func activityAfterDeadTimeDiagnosticDoesNotUseRestartedInterval() throws {
+    let start = Date(timeIntervalSince1970: 1_700_000_000)
+    let intervalID = UUID()
+    let captured = BreakSettings(workThreshold: 60, deadTime: 300)
+    let next = BreakSettings(workThreshold: 999, deadTime: 900)
+    let interval = ActiveInterval(
+        id: intervalID,
+        startedAt: start,
+        lastActivityAt: start.addingTimeInterval(20),
+        workSegments: [TimeSegment(start: start, end: start.addingTimeInterval(20))],
+        settings: captured
+    )
+    var reducer = TimerReducer(state: TimerState(mode: .active, interval: interval))
+    var detector = IdleActivityDetector()
+    detector.baseline(at: interval.lastActivityAt)
+    let now = start.addingTimeInterval(321.5)
+
+    let sample = PermissionlessHIDPolicy.processSample(
+        now: now,
+        idleSeconds: 0.4,
+        detector: &detector,
+        reducer: &reducer,
+        settings: next
+    )
+    let event = TimerDiagnosticBuilder.sample(
+        sample,
+        now: now,
+        idleSeconds: 0.4,
+        defaultSettings: next,
+        context: "poll"
+    )
+
+    #expect(event.reason == "activity-after-dead-time")
+    #expect(event.threshold == captured.workThreshold)
+    #expect(event.deadTime == captured.deadTime)
+    #expect(event.validated == 20)
+    #expect(abs(event.provisional! - 321.1) < 0.001)
+    #expect(event.overtime == 0)
+    #expect(event.recordID == intervalID)
+    #expect(sample.stateAfter.interval?.settings == next)
+}
+
+@Test func lifecycleDiagnosticReportsActualSaveOutcome() {
+    let skipped = LifecycleDiagnosticBuilder.event(
+        "sleep",
+        stateBefore: .active,
+        stateAfter: .active,
+        persistence: .skipped
+    )
+    let failed = LifecycleDiagnosticBuilder.event(
+        "quit",
+        stateBefore: .active,
+        stateAfter: .idle,
+        persistence: .failed(type: "DiskFull", message: "not logged")
+    )
+
+    #expect(skipped.outcome == "skipped")
+    #expect(skipped.reason == nil)
+    #expect(failed.outcome == "failed")
+    #expect(failed.reason == "DiskFull")
+    #expect(failed.message.contains("DiskFull"))
+    #expect(!failed.message.contains("not logged"))
+}

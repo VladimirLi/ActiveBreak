@@ -29,6 +29,122 @@ public struct HistoryRepairApplyResult: Sendable {
     public var backupURL: URL?
 }
 
+public struct HistoryRepairManifest: Codable, Equatable, Sendable {
+    public var mode: String
+    public var statePath: String
+    public var candidatePath: String?
+    public var backupPath: String?
+    public var report: HistoryRepairReport
+}
+
+public struct HistoryRepairCommandResult: Sendable {
+    public var manifest: HistoryRepairManifest
+}
+
+public enum HistoryRepairPathError: Error, Equatable {
+    case stateOutputAlias(String)
+    case outputAlias
+    case candidateNotAllowedInApply
+}
+
+public enum HistoryRepairCommand {
+    public static func run(
+        stateURL: URL,
+        manifestURL: URL,
+        candidateURL: URL? = nil,
+        apply: Bool,
+        backupDate: Date = .now
+    ) throws -> HistoryRepairCommandResult {
+        try validatePaths(
+            stateURL: stateURL,
+            manifestURL: manifestURL,
+            candidateURL: candidateURL,
+            apply: apply
+        )
+
+        let manifest: HistoryRepairManifest
+        if apply {
+            let applied = try HistoryRepair.apply(to: stateURL, backupDate: backupDate)
+            manifest = HistoryRepairManifest(
+                mode: "apply",
+                statePath: stateURL.path,
+                candidatePath: nil,
+                backupPath: applied.backupURL?.path,
+                report: applied.report
+            )
+        } else {
+            let result = HistoryRepair.preview(try HistoryStore(url: stateURL).load())
+            if let candidateURL {
+                try HistoryStore(url: candidateURL).save(result.data)
+            }
+            manifest = HistoryRepairManifest(
+                mode: "preview",
+                statePath: stateURL.path,
+                candidatePath: candidateURL?.path,
+                backupPath: nil,
+                report: result.report
+            )
+        }
+        try FileManager.default.createDirectory(
+            at: manifestURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try JSONEncoder.activeBreak.encode(manifest).write(to: manifestURL, options: .atomic)
+        return HistoryRepairCommandResult(manifest: manifest)
+    }
+
+    private static func validatePaths(
+        stateURL: URL,
+        manifestURL: URL,
+        candidateURL: URL?,
+        apply: Bool
+    ) throws {
+        if apply, candidateURL != nil {
+            throw HistoryRepairPathError.candidateNotAllowedInApply
+        }
+        if equivalent(stateURL, manifestURL) {
+            throw HistoryRepairPathError.stateOutputAlias("manifest")
+        }
+        if let candidateURL {
+            if equivalent(stateURL, candidateURL) {
+                throw HistoryRepairPathError.stateOutputAlias("candidate")
+            }
+            if equivalent(manifestURL, candidateURL) {
+                throw HistoryRepairPathError.outputAlias
+            }
+        }
+    }
+
+    private static func equivalent(_ left: URL, _ right: URL) -> Bool {
+        let leftResolved = left.standardizedFileURL.resolvingSymlinksInPath()
+        let rightResolved = right.standardizedFileURL.resolvingSymlinksInPath()
+        if leftResolved.path == rightResolved.path {
+            return true
+        }
+        guard let leftIdentity = fileIdentity(leftResolved),
+              let rightIdentity = fileIdentity(rightResolved)
+        else {
+            return false
+        }
+        return leftIdentity == rightIdentity
+    }
+
+    private static func fileIdentity(_ url: URL) -> FileIdentity? {
+        guard let attributes = try? FileManager.default.attributesOfItem(atPath: url.path),
+              let device = attributes[.systemNumber] as? NSNumber,
+              let inode = attributes[.systemFileNumber] as? NSNumber
+        else {
+            return nil
+        }
+        return FileIdentity(device: device.uint64Value, inode: inode.uint64Value)
+    }
+
+    private struct FileIdentity: Equatable {
+        let device: UInt64
+        let inode: UInt64
+    }
+}
+
 public enum HistoryRepair {
     public static func preview(_ data: PersistedData) -> HistoryRepairResult {
         let grouped = Dictionary(grouping: data.history.filter(isClosureArtifactCandidate)) {

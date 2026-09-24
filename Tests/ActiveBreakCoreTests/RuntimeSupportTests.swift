@@ -77,3 +77,49 @@ import Testing
     #expect(checkpoint)
     #expect(forced)
 }
+
+@Test func persistenceControllerReportsSkippedBlockedFailedAndPersistedHonestly() {
+    let start = Date(timeIntervalSince1970: 1_700_000_000)
+    var controller = PersistenceController(checkpointInterval: 60)
+    var writes = 0
+
+    let persisted = controller.save(at: start, changed: true, blocked: false) {
+        writes += 1
+    }
+    let skipped = controller.save(
+        at: start.addingTimeInterval(1),
+        changed: false,
+        blocked: false
+    ) {
+        writes += 1
+    }
+    let blocked = controller.save(
+        at: start.addingTimeInterval(2),
+        changed: true,
+        blocked: true
+    ) {
+        writes += 1
+    }
+    let failed = controller.save(
+        at: start.addingTimeInterval(61),
+        changed: false,
+        blocked: false
+    ) {
+        struct ExpectedFailure: Error {}
+        throw ExpectedFailure()
+    }
+    let retried = controller.save(
+        at: start.addingTimeInterval(62),
+        changed: false,
+        blocked: false
+    ) {
+        writes += 1
+    }
+
+    #expect(persisted == .persisted)
+    #expect(skipped == .skipped)
+    #expect(blocked == .blocked)
+    #expect(failed.failureType?.contains("ExpectedFailure") == true)
+    #expect(retried == .persisted)
+    #expect(writes == 2)
+}

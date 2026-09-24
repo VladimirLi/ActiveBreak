@@ -75,3 +75,72 @@ public extension TimerEffect {
         }
     }
 }
+
+public enum TimerDiagnosticBuilder {
+    public static func sample(
+        _ sample: HIDSampleResult,
+        now: Date,
+        idleSeconds: TimeInterval,
+        defaultSettings: BreakSettings,
+        context: String
+    ) -> DiagnosticEvent {
+        let record = sample.effects.compactMap { effect -> HistoryRecord? in
+            if case let .log(record) = effect { return record }
+            return nil
+        }.first
+        let interval = record == nil
+            ? sample.stateAfter.interval ?? sample.stateBefore.interval
+            : sample.stateBefore.interval
+        let decisionAt = sample.inferredEventAt ?? now
+        let reason: String
+        if record != nil {
+            reason = sample.inferredEventAt == nil
+                ? "dead-time"
+                : "activity-after-dead-time"
+        } else {
+            reason = context
+        }
+        return DiagnosticEvent(
+            category: .timer,
+            event: "sample",
+            reason: reason,
+            stateBefore: sample.stateBefore.mode,
+            stateAfter: sample.stateAfter.mode,
+            idleSeconds: idleSeconds,
+            inferredEventAt: sample.inferredEventAt,
+            threshold: interval?.settings.workThreshold ?? defaultSettings.workThreshold,
+            deadTime: interval?.settings.deadTime ?? defaultSettings.deadTime,
+            validated: record?.activeDuration ?? interval?.validatedActive ?? 0,
+            provisional: interval?.provisionalActive(at: decisionAt) ?? 0,
+            overtime: record?.overtimeDuration ?? interval?.overtime ?? 0,
+            effectKinds: sample.effects.map(\.diagnosticKind),
+            recordID: record?.id,
+            outcome: record == nil ? "sampled" : "closed"
+        )
+    }
+}
+
+public enum LifecycleDiagnosticBuilder {
+    public static func event(
+        _ event: String,
+        reason: String? = nil,
+        stateBefore: TimerMode? = nil,
+        stateAfter: TimerMode? = nil,
+        effects: [TimerEffect] = [],
+        persistence: PersistenceResult
+    ) -> DiagnosticEvent {
+        DiagnosticEvent(
+            category: .lifecycle,
+            event: event,
+            reason: persistence.failureType ?? reason,
+            stateBefore: stateBefore,
+            stateAfter: stateAfter,
+            effectKinds: effects.map(\.diagnosticKind),
+            recordID: effects.compactMap { effect in
+                if case let .log(record) = effect { return record.id }
+                return nil
+            }.first,
+            outcome: persistence.outcome
+        )
+    }
+}

@@ -105,7 +105,9 @@ closure artifacts MUST be matched by exact interval identity and zero-work
 shape; a unique legitimate zero-work interval and near-duplicates MUST remain.
 Apply mode MUST require an explicit flag, create a timestamped backup beside
 the state file, atomically replace it, validate the decoded result and
-aggregates, and be idempotent.
+aggregates, and be idempotent. Preview and apply MUST reject state, candidate,
+and manifest paths that alias through direct, normalized, symbolic-link, or
+hard-link identity before writing any output.
 
 Smoke verification MUST use the non-GUI core harness with an isolated state
 path, finish through normal process return, prove the live state fingerprint is

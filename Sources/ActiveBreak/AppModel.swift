@@ -35,7 +35,7 @@ final class AppModel: NSObject, ObservableObject {
     private var timer: Timer?
     private var activityDetector = IdleActivityDetector()
     private var persistenceBlocked: Bool
-    private var persistenceCadence: PersistenceCadence
+    private var persistenceController: PersistenceController
     private var now: Date
 
     override init() {
@@ -63,7 +63,7 @@ final class AppModel: NSObject, ObservableObject {
         self.reducer = TimerReducer(state: loaded.timer)
         self.persistenceError = loadError
         self.persistenceBlocked = loadError != nil
-        self.persistenceCadence = PersistenceCadence(lastSavedAt: loaded.savedAt)
+        self.persistenceController = PersistenceController(lastSavedAt: loaded.savedAt)
         self.now = launchNow
         let remaining = self.reducer.remaining(at: launchNow, defaultSettings: loaded.settings)
         self.status = StatusBarModel(
@@ -92,21 +92,19 @@ final class AppModel: NSObject, ObservableObject {
             systemUptime: ProcessInfo.processInfo.systemUptime
         )
         let changed = apply(effects)
+        updateStatus()
+        let saveResult = save(changed: changed, force: true)
         log(
-            DiagnosticEvent(
-                category: .lifecycle,
-                event: "relaunch",
+            LifecycleDiagnosticBuilder.event(
+                "relaunch",
                 reason: "restore",
                 stateBefore: before,
                 stateAfter: reducer.state.mode,
-                effectKinds: effects.map(\.diagnosticKind),
-                recordID: effects.compactMap(\.recordID).first,
-                outcome: changed ? "updated" : "unchanged"
+                effects: effects,
+                persistence: saveResult
             ),
             with: Logs.lifecycle
         )
-        updateStatus()
-        save(changed: changed, force: true)
         configureLaunchAtLogin(enabled: data.settings.launchAtLogin)
         timer = Timer.scheduledTimer(
             timeInterval: PermissionlessHIDPolicy.pollInterval,
@@ -150,17 +148,16 @@ final class AppModel: NSObject, ObservableObject {
         now = Date()
         let before = reducer.state.mode
         let changed = processHIDActivity(context: "sleep")
+        let saveResult = save(changed: changed, force: true)
         log(
-            DiagnosticEvent(
-                category: .lifecycle,
-                event: "sleep",
+            LifecycleDiagnosticBuilder.event(
+                "sleep",
                 stateBefore: before,
                 stateAfter: reducer.state.mode,
-                outcome: "flushed"
+                persistence: saveResult
             ),
             with: Logs.lifecycle
         )
-        save(changed: changed, force: true)
     }
 
     @objc private func didWake() {
@@ -169,43 +166,43 @@ final class AppModel: NSObject, ObservableObject {
         let before = reducer.state.mode
         let effects = reducer.wake(at: now)
         let changed = apply(effects)
+        updateStatus()
+        let saveResult = save(changed: changed, force: true)
         log(
-            DiagnosticEvent(
-                category: .lifecycle,
-                event: "wake",
+            LifecycleDiagnosticBuilder.event(
+                "wake",
                 reason: "wake-closes-active",
                 stateBefore: before,
                 stateAfter: reducer.state.mode,
-                effectKinds: effects.map(\.diagnosticKind),
-                recordID: effects.compactMap(\.recordID).first,
-                outcome: changed ? "updated" : "unchanged"
+                effects: effects,
+                persistence: saveResult
             ),
             with: Logs.lifecycle
         )
-        updateStatus()
-        save(changed: changed, force: true)
     }
 
     func togglePause() {
         now = Date()
+        let before = reducer.state.mode
+        var changed = false
         if isPaused {
             reducer.resume()
             activityDetector.baseline(at: now)
         } else {
-            _ = apply(reducer.pause(at: now))
+            changed = apply(reducer.pause(at: now))
         }
-        let changed = syncTimerState()
+        changed = syncTimerState() || changed
         updateStatus()
+        let saveResult = save(changed: changed, force: true)
         log(
-            DiagnosticEvent(
-                category: .lifecycle,
-                event: isPaused ? "pause" : "resume",
+            LifecycleDiagnosticBuilder.event(
+                isPaused ? "pause" : "resume",
+                stateBefore: before,
                 stateAfter: reducer.state.mode,
-                outcome: "saved"
+                persistence: saveResult
             ),
             with: Logs.lifecycle
         )
-        save(changed: changed, force: true)
     }
 
     func updateSettings(_ settings: BreakSettings) {
@@ -243,17 +240,16 @@ final class AppModel: NSObject, ObservableObject {
         now = Date()
         let before = reducer.state.mode
         let changed = processHIDActivity(context: "quit")
+        let saveResult = save(changed: changed, force: true)
         log(
-            DiagnosticEvent(
-                category: .lifecycle,
-                event: "quit",
+            LifecycleDiagnosticBuilder.event(
+                "quit",
                 stateBefore: before,
                 stateAfter: reducer.state.mode,
-                outcome: "flushed"
+                persistence: saveResult
             ),
             with: Logs.lifecycle
         )
-        save(changed: changed, force: true)
     }
 
     @discardableResult
@@ -356,32 +352,13 @@ final class AppModel: NSObject, ObservableObject {
             settings: data.settings
         )
         let changed = apply(sample.effects)
-        let interval = reducer.state.interval
-        let closureReason: String
-        if sample.effects.contains(where: { $0.recordID != nil }) {
-            closureReason = sample.inferredEventAt == nil
-                ? "dead-time"
-                : "activity-after-dead-time"
-        } else {
-            closureReason = context
-        }
         log(
-            DiagnosticEvent(
-                category: .timer,
-                event: "sample",
-                reason: closureReason,
-                stateBefore: sample.stateBefore.mode,
-                stateAfter: sample.stateAfter.mode,
+            TimerDiagnosticBuilder.sample(
+                sample,
+                now: now,
                 idleSeconds: idle,
-                inferredEventAt: sample.inferredEventAt,
-                threshold: interval?.settings.workThreshold ?? data.settings.workThreshold,
-                deadTime: interval?.settings.deadTime ?? data.settings.deadTime,
-                validated: interval?.validatedActive ?? 0,
-                provisional: interval?.provisionalActive(at: now) ?? 0,
-                overtime: interval?.overtime ?? 0,
-                effectKinds: sample.effects.map(\.diagnosticKind),
-                recordID: sample.effects.compactMap(\.recordID).first,
-                outcome: changed ? "updated" : "unchanged"
+                defaultSettings: data.settings,
+                context: context
             ),
             with: Logs.timer,
             level: sample.effects.isEmpty ? .debug : .info
@@ -393,41 +370,39 @@ final class AppModel: NSObject, ObservableObject {
         status.update(text: statusText, isOverdue: isOverdue)
     }
 
-    private func save(changed: Bool, force: Bool = false) {
-        guard !persistenceBlocked else { return }
-        guard persistenceCadence.shouldSave(at: now, changed: changed, force: force) else {
-            return
-        }
+    @discardableResult
+    private func save(changed: Bool, force: Bool = false) -> PersistenceResult {
         var snapshot = data
         snapshot.savedAt = now
         snapshot.savedSystemUptime = ProcessInfo.processInfo.systemUptime
-        do {
+        let result = persistenceController.save(
+            at: now,
+            changed: changed,
+            force: force,
+            blocked: persistenceBlocked
+        ) {
             try store.save(snapshot)
-            persistenceError = nil
-            log(
-                DiagnosticEvent(
-                    category: .persistence,
-                    event: "save",
-                    stateAfter: reducer.state.mode,
-                    outcome: force ? "forced-success" : "success"
-                ),
-                with: Logs.persistence
-            )
-        } catch {
-            persistenceCadence.markSaveFailed()
-            persistenceError = error.localizedDescription
-            log(
-                DiagnosticEvent(
-                    category: .persistence,
-                    event: "save",
-                    reason: String(reflecting: type(of: error)),
-                    stateAfter: reducer.state.mode,
-                    outcome: "failure"
-                ),
-                with: Logs.persistence,
-                level: .error
-            )
         }
+        switch result {
+        case .persisted:
+            persistenceError = nil
+        case .failed:
+            persistenceError = result.failureMessage
+        case .skipped, .blocked:
+            break
+        }
+        log(
+            DiagnosticEvent(
+                category: .persistence,
+                event: "save",
+                reason: result.failureType,
+                stateAfter: reducer.state.mode,
+                outcome: result.outcome
+            ),
+            with: Logs.persistence,
+            level: result == .persisted || result == .skipped ? .debug : .error
+        )
+        return result
     }
 
     private func log(

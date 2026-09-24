@@ -97,6 +97,72 @@ import Testing
     }
 }
 
+@Test func repairCommandRejectsStateAliasesWithoutChangingBytes() throws {
+    for output in ["candidate", "manifest"] {
+        for alias in ["direct", "standardized", "symlink", "hardlink"] {
+            let directory = FileManager.default.temporaryDirectory
+                .appendingPathComponent(UUID().uuidString)
+            defer { try? FileManager.default.removeItem(at: directory) }
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            let stateURL = directory.appendingPathComponent("state.json")
+            try HistoryStore(url: stateURL).save(PersistedData(history: [
+                zeroWorkRecord(id: UUID(), start: .now, breakEnd: .now.addingTimeInterval(300)),
+                zeroWorkRecord(id: UUID(), start: .now, breakEnd: .now.addingTimeInterval(301)),
+            ]))
+            let original = try Data(contentsOf: stateURL)
+            let aliasURL: URL
+            switch alias {
+            case "direct":
+                aliasURL = stateURL
+            case "standardized":
+                let child = directory.appendingPathComponent("child")
+                try FileManager.default.createDirectory(at: child, withIntermediateDirectories: true)
+                aliasURL = child.appendingPathComponent("..").appendingPathComponent("state.json")
+            case "symlink":
+                aliasURL = directory.appendingPathComponent("state-link.json")
+                try FileManager.default.createSymbolicLink(at: aliasURL, withDestinationURL: stateURL)
+            default:
+                aliasURL = directory.appendingPathComponent("state-hardlink.json")
+                try FileManager.default.linkItem(at: stateURL, to: aliasURL)
+            }
+            let candidateURL = output == "candidate"
+                ? aliasURL
+                : directory.appendingPathComponent("candidate.json")
+            let manifestURL = output == "manifest"
+                ? aliasURL
+                : directory.appendingPathComponent("manifest.json")
+
+            #expect(throws: HistoryRepairPathError.self) {
+                try HistoryRepairCommand.run(
+                    stateURL: stateURL,
+                    manifestURL: manifestURL,
+                    candidateURL: candidateURL,
+                    apply: false
+                )
+            }
+            #expect(try Data(contentsOf: stateURL) == original)
+        }
+    }
+}
+
+@Test func repairApplyRejectsManifestStateCollisionWithoutChangingBytes() throws {
+    let directory = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let stateURL = directory.appendingPathComponent("state.json")
+    try HistoryStore(url: stateURL).save(PersistedData())
+    let original = try Data(contentsOf: stateURL)
+
+    #expect(throws: HistoryRepairPathError.self) {
+        try HistoryRepairCommand.run(
+            stateURL: stateURL,
+            manifestURL: stateURL,
+            apply: true
+        )
+    }
+    #expect(try Data(contentsOf: stateURL) == original)
+}
+
 private func zeroWorkRecord(id: UUID, start: Date, breakEnd: Date) -> HistoryRecord {
     HistoryRecord(
         id: id,
