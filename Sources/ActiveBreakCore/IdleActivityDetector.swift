@@ -39,31 +39,39 @@ public struct HIDSampleResult: Sendable {
 }
 
 public struct IdleActivityDetector: Sendable {
-    public let timestampEpsilon: TimeInterval
     public let initialActivityWindow: TimeInterval
     public private(set) var lastEventAt: Date?
+    private var lastSampleAt: Date?
+    private var lastIdleSeconds: TimeInterval?
 
-    public init(
-        timestampEpsilon: TimeInterval = 0.01,
-        initialActivityWindow: TimeInterval = 1.5
-    ) {
-        self.timestampEpsilon = timestampEpsilon
+    public init(initialActivityWindow: TimeInterval = 1.5) {
         self.initialActivityWindow = initialActivityWindow
     }
 
     public mutating func baseline(at date: Date) {
         lastEventAt = date
+        lastSampleAt = date
+        lastIdleSeconds = 0
     }
 
     public mutating func activityDate(now: Date, idleSeconds: TimeInterval) -> Date? {
         let idle = max(0, idleSeconds)
         let eventAt = now.addingTimeInterval(-idle)
-        guard let previous = lastEventAt else {
+        guard let previousEvent = lastEventAt,
+              let previousSample = lastSampleAt,
+              let previousIdle = lastIdleSeconds
+        else {
             lastEventAt = eventAt
+            lastSampleAt = now
+            lastIdleSeconds = idle
             return idle <= initialActivityWindow ? eventAt : nil
         }
-        lastEventAt = max(previous, eventAt)
-        guard eventAt.timeIntervalSince(previous) > timestampEpsilon,
+        let observationAdvance = now.timeIntervalSince(previousSample) - (idle - previousIdle)
+        lastEventAt = max(previousEvent, eventAt)
+        lastSampleAt = now
+        lastIdleSeconds = idle
+        guard observationAdvance > 0,
+              eventAt > previousEvent,
               idle <= initialActivityWindow
         else { return nil }
         return eventAt

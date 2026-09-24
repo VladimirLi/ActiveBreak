@@ -30,9 +30,11 @@ The permissionless aggregate HID API exposes only the latest event seen at each
 one-second poll. If that event is first observed no more than one polling
 interval after the dead-time boundary, ActiveBreak conservatively counts the
 gap as work because an earlier event may have occurred between polls. Events
-later than that one-second grace close the old interval normally. Small
-timestamp-reconstruction jitter is absorbed without accumulating, and stale
-events outside the polling window cannot restart an idle timer.
+later than that one-second grace close the old interval normally. Each
+reconstructed event is compared with the immediately previous observation so
+drift from a stale physical event cannot accumulate into activity, while real
+millisecond-scale activity remains observable. Stale events outside the polling
+window cannot restart an idle timer.
 
 At zero, ActiveBreak sends one notification. Notification banners and sound can
 be disabled independently. The timer continues below zero until dead time,

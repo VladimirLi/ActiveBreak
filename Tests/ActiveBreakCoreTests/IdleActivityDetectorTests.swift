@@ -50,6 +50,28 @@ import Testing
     ) == start.addingTimeInterval(0.05))
 }
 
+@Test func realActivityFiveMillisecondsLaterIsEmitted() {
+    let start = Date(timeIntervalSince1970: 1_700_000_000)
+    var detector = IdleActivityDetector()
+
+    #expect(detector.activityDate(now: start, idleSeconds: 0) == start)
+    #expect(detector.activityDate(
+        now: start.addingTimeInterval(1),
+        idleSeconds: 0.995
+    ) == start.addingTimeInterval(0.005))
+}
+
+@Test func realActivityExactlyTenMillisecondsLaterIsEmitted() {
+    let start = Date(timeIntervalSince1970: 1_700_000_000)
+    var detector = IdleActivityDetector()
+
+    #expect(detector.activityDate(now: start, idleSeconds: 0) == start)
+    #expect(detector.activityDate(
+        now: start.addingTimeInterval(1),
+        idleSeconds: 0.99
+    ) == start.addingTimeInterval(0.01))
+}
+
 @Test func reconstructionJitterDoesNotDuplicateAnEvent() {
     let start = Date(timeIntervalSince1970: 1_700_000_000)
     var detector = IdleActivityDetector()
@@ -57,7 +79,7 @@ import Testing
     #expect(detector.activityDate(now: start, idleSeconds: 0) == start)
     #expect(detector.activityDate(
         now: start.addingTimeInterval(1),
-        idleSeconds: 0.999_999_5
+        idleSeconds: 1
     ) == nil)
 }
 
@@ -65,13 +87,16 @@ import Testing
     let start = Date(timeIntervalSince1970: 1_700_000_000)
     var detector = IdleActivityDetector()
 
-    #expect(detector.activityDate(now: start, idleSeconds: 0) == start)
+    #expect(detector.activityDate(
+        now: start.addingTimeInterval(120),
+        idleSeconds: 120
+    ) == nil)
     for sample in 1...10 {
-        let elapsed = Double(sample)
-        let reconstructedDrift = Double(sample) * 0.005
+        let now = start.addingTimeInterval(120 + Double(sample))
+        let staleEvent = start.addingTimeInterval(Double(sample) * 0.005)
         #expect(detector.activityDate(
-            now: start.addingTimeInterval(elapsed),
-            idleSeconds: elapsed - reconstructedDrift
+            now: now,
+            idleSeconds: now.timeIntervalSince(staleEvent)
         ) == nil)
     }
 }
