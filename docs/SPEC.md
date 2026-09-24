@@ -94,6 +94,11 @@ validated/provisional/overtime duration, emitted effect kinds and record ID,
 persistence outcome, sleep/wake/relaunch/quit handling, and login-item failure
 type.
 
+Relaunch diagnostics MUST distinguish preserved state, dead-time closure, sleep
+closure, and reboot closure. Wake diagnostics MUST report closure only when a
+history effect was emitted. Non-throwing login-item status failures MUST report
+the status type and an explicit non-success outcome.
+
 Timer state transitions, including effect-free idle-to-active starts, and
 successful persisted writes MUST be emitted at info level. Unchanged samples
 and skipped writes MUST be debug-only. Blocked and failed writes MUST be errors.

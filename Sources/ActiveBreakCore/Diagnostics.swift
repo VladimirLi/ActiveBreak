@@ -29,6 +29,7 @@ public struct DiagnosticEvent: Codable, Equatable, Sendable {
     public var effectKinds: [String]?
     public var recordID: UUID?
     public var outcome: String?
+    public var failureType: String?
 
     public init(
         category: DiagnosticCategory,
@@ -45,7 +46,8 @@ public struct DiagnosticEvent: Codable, Equatable, Sendable {
         overtime: TimeInterval? = nil,
         effectKinds: [String]? = nil,
         recordID: UUID? = nil,
-        outcome: String? = nil
+        outcome: String? = nil,
+        failureType: String? = nil
     ) {
         self.category = category
         self.event = event
@@ -62,6 +64,7 @@ public struct DiagnosticEvent: Codable, Equatable, Sendable {
         self.effectKinds = effectKinds
         self.recordID = recordID
         self.outcome = outcome
+        self.failureType = failureType
     }
 
     public var message: String {
@@ -138,7 +141,7 @@ public enum LifecycleDiagnosticBuilder {
         DiagnosticEvent(
             category: .lifecycle,
             event: event,
-            reason: persistence.failureType ?? reason,
+            reason: reason,
             stateBefore: stateBefore,
             stateAfter: stateAfter,
             effectKinds: effects.map(\.diagnosticKind),
@@ -146,7 +149,54 @@ public enum LifecycleDiagnosticBuilder {
                 if case let .log(record) = effect { return record.id }
                 return nil
             }.first,
-            outcome: persistence.outcome
+            outcome: persistence.outcome,
+            failureType: persistence.failureType
+        )
+    }
+}
+
+public enum LifecycleDiagnosticReason {
+    public static func wake(stateBefore: TimerMode, effects: [TimerEffect]) -> String {
+        if effects.contains(where: {
+            if case .log = $0 { return true }
+            return false
+        }) {
+            return "wake-closes-active"
+        }
+        return stateBefore == .paused ? "wake-preserves-paused" : "wake-no-op"
+    }
+}
+
+public enum LoginItemDiagnosticBuilder {
+    public static func configure(
+        enabled: Bool,
+        status: LaunchAtLoginStatus
+    ) -> DiagnosticEvent {
+        let reason: String?
+        let outcome: String
+        switch (enabled, status) {
+        case (true, .enabled), (false, .notRegistered):
+            reason = nil
+            outcome = "success"
+        case (_, .requiresApproval):
+            reason = "requiresApproval"
+            outcome = "requires-user-action"
+        case (_, .notFound):
+            reason = "notFound"
+            outcome = "failure"
+        case (true, .notRegistered):
+            reason = "notRegistered"
+            outcome = "failure"
+        case (false, .enabled):
+            reason = "enabled"
+            outcome = "failure"
+        }
+        return DiagnosticEvent(
+            category: .loginItem,
+            event: "configure",
+            reason: reason,
+            outcome: outcome,
+            failureType: reason
         )
     }
 }

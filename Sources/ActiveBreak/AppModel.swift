@@ -85,11 +85,19 @@ final class AppModel: NSObject, ObservableObject {
             level: loadError == nil ? .info : .error
         )
         let before = reducer.state.mode
+        let systemUptime = ProcessInfo.processInfo.systemUptime
+        let relaunchReason = TimerReducer.relaunchReason(
+            state: reducer.state,
+            savedAt: loaded.savedAt,
+            savedSystemUptime: loaded.savedSystemUptime,
+            now: now,
+            systemUptime: systemUptime
+        )
         let effects = reducer.restore(
             savedAt: loaded.savedAt,
             savedSystemUptime: loaded.savedSystemUptime,
             now: now,
-            systemUptime: ProcessInfo.processInfo.systemUptime
+            systemUptime: systemUptime
         )
         let changed = apply(effects)
         updateStatus()
@@ -97,7 +105,7 @@ final class AppModel: NSObject, ObservableObject {
         log(
             LifecycleDiagnosticBuilder.event(
                 "relaunch",
-                reason: "restore",
+                reason: relaunchReason.rawValue,
                 stateBefore: before,
                 stateAfter: reducer.state.mode,
                 effects: effects,
@@ -171,7 +179,10 @@ final class AppModel: NSObject, ObservableObject {
         log(
             LifecycleDiagnosticBuilder.event(
                 "wake",
-                reason: "wake-closes-active",
+                reason: LifecycleDiagnosticReason.wake(
+                    stateBefore: before,
+                    effects: effects
+                ),
                 stateBefore: before,
                 stateAfter: reducer.state.mode,
                 effects: effects,
@@ -307,17 +318,19 @@ final class AppModel: NSObject, ObservableObject {
             case .none:
                 break
             }
+            let status = service.status.activeBreak
             launchAtLoginError = LaunchAtLoginPolicy.errorMessage(
                 enabled: enabled,
-                status: service.status.activeBreak
+                status: status
+            )
+            let event = LoginItemDiagnosticBuilder.configure(
+                enabled: enabled,
+                status: status
             )
             log(
-                DiagnosticEvent(
-                    category: .loginItem,
-                    event: "configure",
-                    outcome: launchAtLoginError == nil ? "success" : "requires-user-action"
-                ),
-                with: Logs.loginItem
+                event,
+                with: Logs.loginItem,
+                level: event.outcome == "success" ? .info : .error
             )
         } catch {
             launchAtLoginError = error.localizedDescription
@@ -326,7 +339,8 @@ final class AppModel: NSObject, ObservableObject {
                     category: .loginItem,
                     event: "configure",
                     reason: String(reflecting: type(of: error)),
-                    outcome: "failure"
+                    outcome: "failure",
+                    failureType: String(reflecting: type(of: error))
                 ),
                 with: Logs.loginItem,
                 level: .error

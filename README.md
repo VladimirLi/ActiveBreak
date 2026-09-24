@@ -120,8 +120,10 @@ log show --last 1h --predicate 'subsystem == "com.vladimirli.ActiveBreak"'
 Diagnostics include timing decisions, state transitions, effect kinds,
 persistence outcomes, lifecycle handling, and login-item outcomes. They never
 include keys, pointer coordinates, app names, window titles, screenshots, or
-raw input events. Timer transitions and successful writes are emitted at info
-level; unchanged samples and skipped writes remain debug-only.
+raw input events. Relaunch and wake logs identify the actual closure or
+preservation cause, and login-item status failures name the status. Timer
+transitions and successful writes are emitted at info level; unchanged samples
+and skipped writes remain debug-only.
 
 State is saved when it changes, at lifecycle boundaries, and at most every 60
 seconds as a checkpoint. An abrupt process loss can therefore lose at most the

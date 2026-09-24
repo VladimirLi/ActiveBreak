@@ -139,7 +139,8 @@ import Testing
     #expect(skipped.outcome == "skipped")
     #expect(skipped.reason == nil)
     #expect(failed.outcome == "failed")
-    #expect(failed.reason == "DiskFull")
+    #expect(failed.reason == nil)
+    #expect(failed.failureType == "DiskFull")
     #expect(failed.message.contains("DiskFull"))
     #expect(!failed.message.contains("not logged"))
 }
@@ -196,4 +197,98 @@ import Testing
     #expect(DiagnosticLevelClassifier.persistence(
         .failed(type: "DiskFull", message: "not logged")
     ) == .error)
+}
+
+@Test func relaunchDiagnosticsDistinguishEveryRestoreCause() {
+    let start = Date(timeIntervalSince1970: 1_700_000_000)
+    let active = TimerState(
+        mode: .active,
+        interval: ActiveInterval(
+            startedAt: start,
+            lastActivityAt: start,
+            settings: BreakSettings(deadTime: 300)
+        )
+    )
+
+    #expect(TimerReducer.relaunchReason(
+        state: active,
+        savedAt: start.addingTimeInterval(10),
+        savedSystemUptime: 1_000,
+        now: start.addingTimeInterval(20),
+        systemUptime: 1_010
+    ) == .preserved)
+    #expect(TimerReducer.relaunchReason(
+        state: active,
+        savedAt: start.addingTimeInterval(299),
+        now: start.addingTimeInterval(300),
+        systemUptime: nil
+    ) == .deadTimeClosure)
+    #expect(TimerReducer.relaunchReason(
+        state: active,
+        savedAt: start.addingTimeInterval(10),
+        savedSystemUptime: 1_000,
+        now: start.addingTimeInterval(20),
+        systemUptime: 1_002
+    ) == .sleepClosure)
+    #expect(TimerReducer.relaunchReason(
+        state: active,
+        savedAt: start.addingTimeInterval(10),
+        savedSystemUptime: 10_000,
+        now: start.addingTimeInterval(20),
+        systemUptime: 5
+    ) == .rebootClosure)
+}
+
+@Test func wakeDiagnosticsOnlyClaimClosureForHistoryEffect() {
+    let record = HistoryRecord(
+        id: UUID(),
+        intervalStart: Date(timeIntervalSince1970: 1_700_000_000),
+        intervalEnd: Date(timeIntervalSince1970: 1_700_000_010),
+        activeDuration: 10,
+        overtimeDuration: 0
+    )
+
+    #expect(LifecycleDiagnosticReason.wake(
+        stateBefore: .active,
+        effects: [.log(record)]
+    ) == "wake-closes-active")
+    #expect(LifecycleDiagnosticReason.wake(
+        stateBefore: .idle,
+        effects: []
+    ) == "wake-no-op")
+    #expect(LifecycleDiagnosticReason.wake(
+        stateBefore: .paused,
+        effects: []
+    ) == "wake-preserves-paused")
+}
+
+@Test func loginItemDiagnosticsNameNonThrowingFailures() {
+    let approval = LoginItemDiagnosticBuilder.configure(
+        enabled: true,
+        status: .requiresApproval
+    )
+    let missing = LoginItemDiagnosticBuilder.configure(
+        enabled: true,
+        status: .notFound
+    )
+
+    #expect(approval.outcome == "requires-user-action")
+    #expect(approval.reason == "requiresApproval")
+    #expect(approval.failureType == "requiresApproval")
+    #expect(missing.outcome == "failure")
+    #expect(missing.reason == "notFound")
+    #expect(missing.failureType == "notFound")
+}
+
+@Test func lifecycleFailureDoesNotReplaceRelaunchCause() {
+    let event = LifecycleDiagnosticBuilder.event(
+        "relaunch",
+        reason: RelaunchReason.rebootClosure.rawValue,
+        stateBefore: .active,
+        stateAfter: .idle,
+        persistence: .failed(type: "DiskFull", message: "not logged")
+    )
+
+    #expect(event.reason == "reboot-closure")
+    #expect(event.failureType == "DiskFull")
 }

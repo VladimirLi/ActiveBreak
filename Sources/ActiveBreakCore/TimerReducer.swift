@@ -6,6 +6,13 @@ public enum TimerEffect: Equatable, Sendable {
     case log(HistoryRecord)
 }
 
+public enum RelaunchReason: String, Equatable, Sendable {
+    case preserved = "preserved-state"
+    case deadTimeClosure = "dead-time-closure"
+    case sleepClosure = "sleep-closure"
+    case rebootClosure = "reboot-closure"
+}
+
 public struct TimerReducer: Sendable {
     public static let sleepDetectionTolerance: TimeInterval = 2
 
@@ -87,21 +94,43 @@ public struct TimerReducer: Sendable {
         systemUptime: TimeInterval? = nil
     ) -> [TimerEffect] {
         guard state.mode == .active, var interval = state.interval else { return [] }
-        let downtime = max(0, now.timeIntervalSince(savedAt))
-        let totalGap = max(0, now.timeIntervalSince(interval.lastActivityAt))
-        if Self.detectedSleepOrReboot(
-            wallElapsed: downtime,
+        let reason = Self.relaunchReason(
+            state: state,
+            savedAt: savedAt,
             savedSystemUptime: savedSystemUptime,
-            currentSystemUptime: systemUptime
-        ) || totalGap >= interval.settings.deadTime {
+            now: now,
+            systemUptime: systemUptime
+        )
+        if reason != .preserved {
             state = TimerState()
             return close(interval: interval, breakEnd: now)
         }
+        let downtime = max(0, now.timeIntervalSince(savedAt))
         if downtime > 0 {
             interval.excludedGaps.append(TimeSegment(start: savedAt, end: now))
         }
         state.interval = interval
         return []
+    }
+
+    public static func relaunchReason(
+        state: TimerState,
+        savedAt: Date,
+        savedSystemUptime: TimeInterval? = nil,
+        now: Date,
+        systemUptime: TimeInterval? = nil
+    ) -> RelaunchReason {
+        guard state.mode == .active, let interval = state.interval else { return .preserved }
+        let downtime = max(0, now.timeIntervalSince(savedAt))
+        if let savedSystemUptime, let systemUptime {
+            guard systemUptime >= savedSystemUptime else { return .rebootClosure }
+            if downtime - (systemUptime - savedSystemUptime) > sleepDetectionTolerance {
+                return .sleepClosure
+            }
+        }
+        return now.timeIntervalSince(interval.lastActivityAt) >= interval.settings.deadTime
+            ? .deadTimeClosure
+            : .preserved
     }
 
     public static func detectedSleepOrReboot(

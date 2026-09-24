@@ -25,4 +25,7 @@ import Testing
     #expect(pauseBody.contains("effects: effects"))
     #expect(appModel.contains("DiagnosticLevelClassifier.timer(sample)"))
     #expect(appModel.contains("DiagnosticLevelClassifier.persistence(result)"))
+    #expect(appModel.contains("reason: relaunchReason.rawValue"))
+    #expect(appModel.contains("reason: LifecycleDiagnosticReason.wake("))
+    #expect(appModel.contains("LoginItemDiagnosticBuilder.configure("))
 }
