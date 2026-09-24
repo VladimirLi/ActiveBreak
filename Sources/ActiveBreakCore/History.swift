@@ -136,7 +136,10 @@ public enum HistoryAggregator {
 public extension JSONEncoder {
     static var activeBreak: JSONEncoder {
         let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
+        encoder.dateEncodingStrategy = .custom { date, encoder in
+            var container = encoder.singleValueContainer()
+            try container.encode(ActiveBreakDateCoding.string(from: date))
+        }
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         return encoder
     }
@@ -145,7 +148,42 @@ public extension JSONEncoder {
 public extension JSONDecoder {
     static var activeBreak: JSONDecoder {
         let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
+        decoder.dateDecodingStrategy = .custom { decoder in
+            let container = try decoder.singleValueContainer()
+            let value = try container.decode(String.self)
+            guard let date = ActiveBreakDateCoding.date(from: value) else {
+                throw DecodingError.dataCorruptedError(
+                    in: container,
+                    debugDescription: "Invalid ISO-8601 date: \(value)"
+                )
+            }
+            return date
+        }
         return decoder
+    }
+}
+
+enum ActiveBreakDateCoding {
+    static func string(from date: Date) -> String {
+        ISO8601DateFormatter.withFractionalSeconds.string(from: date)
+    }
+
+    static func date(from value: String) -> Date? {
+        ISO8601DateFormatter.withFractionalSeconds.date(from: value)
+            ?? ISO8601DateFormatter.withoutFractionalSeconds.date(from: value)
+    }
+}
+
+private extension ISO8601DateFormatter {
+    static var withFractionalSeconds: ISO8601DateFormatter {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }
+
+    static var withoutFractionalSeconds: ISO8601DateFormatter {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter
     }
 }

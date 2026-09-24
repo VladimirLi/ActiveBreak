@@ -116,7 +116,7 @@ final class AppModel: NSObject, ObservableObject {
         save()
     }
 
-    func export(format: ExportFormat, from start: Date, through end: Date) {
+    func export(format: ExportFormat, from start: Date, before end: Date) {
         let panel = NSSavePanel()
         panel.allowedContentTypes = [format.contentType]
         panel.nameFieldStringValue = "ActiveBreak-\(format.rawValue).\(format.fileExtension)"
@@ -124,8 +124,8 @@ final class AppModel: NSObject, ObservableObject {
 
         do {
             let bytes = try format == .json
-                ? HistoryExporter.json(data.history, from: start, through: end)
-                : HistoryExporter.csv(data.history, from: start, through: end)
+                ? HistoryExporter.json(data.history, from: start, before: end)
+                : HistoryExporter.csv(data.history, from: start, before: end)
             try bytes.write(to: url, options: .atomic)
         } catch {
             let alert = NSAlert(error: error)

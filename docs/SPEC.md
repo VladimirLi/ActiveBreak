@@ -57,7 +57,8 @@ timezone.
 
 Dashboard MUST provide daily, weekly, and monthly summaries of active time,
 overtime, break count, and average interval. CSV and JSON export MUST use an
-inclusive selected date range and a native save panel. Exported records MUST be
+selected calendar-day range, ending exclusively at the next local midnight,
+and a native save panel. Exported records MUST be
 clipped to that range and split at current-local-midnight boundaries; exported
 timestamps and durations MUST NOT extend outside the selected range.
 

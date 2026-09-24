@@ -90,6 +90,33 @@ private let start = Date(timeIntervalSince1970: 1_700_000_000)
     #expect(reducer.state.mode == .idle)
 }
 
+@Test func persistedFractionalRelaunchGapStaysBelowDeadTime() throws {
+    let fractionalStart = Date(timeIntervalSince1970: 1_700_000_000.9)
+    let persisted = PersistedData(
+        settings: settings,
+        timer: TimerState(
+            mode: .active,
+            interval: ActiveInterval(
+                startedAt: fractionalStart,
+                lastActivityAt: fractionalStart,
+                settings: settings
+            )
+        ),
+        savedAt: fractionalStart.addingTimeInterval(250)
+    )
+    let decoded = try JSONDecoder.activeBreak.decode(
+        PersistedData.self,
+        from: JSONEncoder.activeBreak.encode(persisted)
+    )
+    var reducer = TimerReducer(state: decoded.timer)
+
+    #expect(reducer.restore(
+        savedAt: decoded.savedAt,
+        now: fractionalStart.addingTimeInterval(299.9)
+    ).isEmpty)
+    #expect(reducer.state.mode == .active)
+}
+
 @Test func shortTotalRelaunchGapExcludesOnlyAppOffTime() {
     var reducer = TimerReducer()
     let longThreshold = BreakSettings(workThreshold: 1_000, deadTime: 300)

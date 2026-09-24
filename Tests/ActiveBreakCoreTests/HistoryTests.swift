@@ -27,6 +27,22 @@ import Testing
     #expect(try store.load() == data)
 }
 
+@Test func fractionalDateRoundTripAndLegacyDateDecode() throws {
+    let date = Date(timeIntervalSince1970: 1_700_000_000.125)
+    let encoded = try JSONEncoder.activeBreak.encode(DateBox(date: date))
+    let text = try #require(String(data: encoded, encoding: .utf8))
+    #expect(text.contains(".125"))
+
+    let decoded = try JSONDecoder.activeBreak.decode(DateBox.self, from: encoded)
+    #expect(abs(decoded.date.timeIntervalSince(date)) < 0.001)
+
+    let legacy = Data(#"{"date":"2023-11-14T22:13:20Z"}"#.utf8)
+    #expect(
+        try JSONDecoder.activeBreak.decode(DateBox.self, from: legacy).date
+            == Date(timeIntervalSince1970: 1_700_000_000)
+    )
+}
+
 @Test func legacyIntervalAndHistoryDecodeIntoTimelineSegments() throws {
     let start = Date(timeIntervalSince1970: 1_700_000_000)
     let encoder = JSONEncoder.activeBreak
@@ -117,8 +133,8 @@ import Testing
     )
     let rangeEnd = start.addingTimeInterval(100)
 
-    #expect(HistoryExporter.records([included, excluded], from: start, through: rangeEnd) == [included])
-    let json = try HistoryExporter.json([included, excluded], from: start, through: rangeEnd)
+    #expect(HistoryExporter.records([included, excluded], from: start, before: rangeEnd) == [included])
+    let json = try HistoryExporter.json([included, excluded], from: start, before: rangeEnd)
     let object = try #require(JSONSerialization.jsonObject(with: json) as? [[String: Any]])
     #expect(object.count == 1)
     #expect(Set(object[0].keys) == [
@@ -181,7 +197,7 @@ import Testing
     let rows = HistoryExporter.records(
         [record],
         from: rangeStart,
-        through: rangeEnd,
+        before: rangeEnd,
         calendar: calendar
     )
 
@@ -198,12 +214,45 @@ import Testing
     })
 
     let csv = try #require(String(
-        data: HistoryExporter.csv([record], from: rangeStart, through: rangeEnd, calendar: calendar),
+        data: HistoryExporter.csv([record], from: rangeStart, before: rangeEnd, calendar: calendar),
         encoding: .utf8
     ))
     #expect(csv.split(separator: "\n").count == 3)
-    let json = try HistoryExporter.json([record], from: rangeStart, through: rangeEnd, calendar: calendar)
+    let json = try HistoryExporter.json([record], from: rangeStart, before: rangeEnd, calendar: calendar)
     #expect((try #require(JSONSerialization.jsonObject(with: json) as? [[String: Any]])).count == 2)
+}
+
+@Test func calendarDayExportIncludesFinalFractionBeforeMidnight() throws {
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = try #require(TimeZone(secondsFromGMT: 0))
+    let dayStart = try #require(calendar.date(from: DateComponents(
+        year: 2026, month: 9, day: 23
+    )))
+    let nextMidnight = try #require(calendar.date(byAdding: .day, value: 1, to: dayStart))
+    let finalFraction = HistoryRecord(
+        intervalStart: nextMidnight.addingTimeInterval(-0.5),
+        intervalEnd: nextMidnight,
+        activeDuration: 0.5,
+        overtimeDuration: 0
+    )
+    let nextDay = HistoryRecord(
+        intervalStart: nextMidnight,
+        intervalEnd: nextMidnight.addingTimeInterval(1),
+        activeDuration: 1,
+        overtimeDuration: 0
+    )
+
+    let rows = HistoryExporter.records(
+        [finalFraction, nextDay],
+        from: dayStart,
+        before: nextMidnight,
+        calendar: calendar
+    )
+
+    #expect(rows.count == 1)
+    #expect(abs(rows[0].activeDuration - 0.5) < 0.001)
+    #expect(rows[0].intervalStart == nextMidnight.addingTimeInterval(-0.5))
+    #expect(rows[0].intervalEnd == nextMidnight)
 }
 
 @Test func csvSchemaRangeAndEscaping() throws {
@@ -217,7 +266,7 @@ import Testing
         activeDuration: 60,
         overtimeDuration: 10
     )
-    let data = HistoryExporter.csv([record], from: start, through: start.addingTimeInterval(100))
+    let data = HistoryExporter.csv([record], from: start, before: start.addingTimeInterval(100))
     let csv = try #require(String(data: data, encoding: .utf8))
     #expect(csv.hasPrefix(
         "id,interval_start,interval_end,active_seconds,overtime_seconds,break_start,break_end,break_seconds\n"
@@ -254,4 +303,8 @@ private struct LegacyHistoryRecord: Encodable {
     let overtimeDuration: TimeInterval
     let breakStart: Date?
     let breakEnd: Date?
+}
+
+private struct DateBox: Codable {
+    let date: Date
 }

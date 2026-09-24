@@ -98,7 +98,11 @@ struct DashboardView: View {
                 Menu {
                     ForEach(ExportFormat.allCases) { format in
                         Button(format.rawValue.uppercased()) {
-                            model.export(format: format, from: rangeStart, through: endOfDay(rangeEnd))
+                            model.export(
+                                format: format,
+                                from: Calendar.current.startOfDay(for: rangeStart),
+                                before: nextDayStart(rangeEnd)
+                            )
                         }
                     }
                 } label: {
@@ -175,8 +179,8 @@ struct DashboardView: View {
         }
     }
 
-    private func endOfDay(_ date: Date) -> Date {
-        Calendar.current.date(byAdding: DateComponents(day: 1, second: -1), to: Calendar.current.startOfDay(for: date))!
+    private func nextDayStart(_ date: Date) -> Date {
+        Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: date))!
     }
 
     private func duration(_ seconds: TimeInterval) -> String {

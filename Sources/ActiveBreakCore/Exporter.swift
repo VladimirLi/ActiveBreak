@@ -4,10 +4,10 @@ public enum HistoryExporter {
     public static func records(
         _ records: [HistoryRecord],
         from start: Date,
-        through end: Date,
+        before end: Date,
         calendar: Calendar = .current
     ) -> [HistoryRecord] {
-        records.flatMap { project($0, from: start, through: end, calendar: calendar) }
+        records.flatMap { project($0, from: start, before: end, calendar: calendar) }
             .sorted {
                 let left = min($0.intervalStart, $0.breakStart ?? $0.intervalStart)
                 let right = min($1.intervalStart, $1.breakStart ?? $1.intervalStart)
@@ -18,13 +18,13 @@ public enum HistoryExporter {
     public static func json(
         _ records: [HistoryRecord],
         from start: Date,
-        through end: Date,
+        before end: Date,
         calendar: Calendar = .current
     ) throws -> Data {
         try JSONEncoder.activeBreak.encode(Self.records(
             records,
             from: start,
-            through: end,
+            before: end,
             calendar: calendar
         ))
     }
@@ -32,20 +32,20 @@ public enum HistoryExporter {
     public static func csv(
         _ records: [HistoryRecord],
         from start: Date,
-        through end: Date,
+        before end: Date,
         calendar: Calendar = .current
     ) -> Data {
         let header = "id,interval_start,interval_end,active_seconds,overtime_seconds,break_start,break_end,break_seconds"
-        let selected = Self.records(records, from: start, through: end, calendar: calendar)
+        let selected = Self.records(records, from: start, before: end, calendar: calendar)
         let rows = selected.map { record -> String in
             let values = [
                 record.id.uuidString,
-                record.intervalStart.ISO8601Format(),
-                record.intervalEnd.ISO8601Format(),
+                ActiveBreakDateCoding.string(from: record.intervalStart),
+                ActiveBreakDateCoding.string(from: record.intervalEnd),
                 String(record.activeDuration),
                 String(record.overtimeDuration),
-                record.breakStart?.ISO8601Format() ?? "",
-                record.breakEnd?.ISO8601Format() ?? "",
+                record.breakStart.map(ActiveBreakDateCoding.string) ?? "",
+                record.breakEnd.map(ActiveBreakDateCoding.string) ?? "",
                 String(record.breakDuration),
             ]
             return values.map(escape).joined(separator: ",")
@@ -69,14 +69,14 @@ public enum HistoryExporter {
     private static func project(
         _ record: HistoryRecord,
         from start: Date,
-        through end: Date,
+        before end: Date,
         calendar: Calendar
     ) -> [HistoryRecord] {
-        guard end >= start else { return [] }
+        guard end > start else { return [] }
         var days: [Date: Projection] = [:]
 
         for segment in record.workSegments {
-            guard let clipped = clip(segment, from: start, through: end) else { continue }
+            guard let clipped = clip(segment, from: start, before: end) else { continue }
             for part in HistoryAggregator.split(clipped, calendar: calendar) {
                 days[calendar.startOfDay(for: part.start), default: Projection()].work.append(part)
             }
@@ -84,7 +84,7 @@ public enum HistoryExporter {
 
         if let breakStart = record.breakStart,
            let breakEnd = record.breakEnd,
-           let clipped = clip(TimeSegment(start: breakStart, end: breakEnd), from: start, through: end) {
+           let clipped = clip(TimeSegment(start: breakStart, end: breakEnd), from: start, before: end) {
             for part in HistoryAggregator.split(clipped, calendar: calendar) {
                 days[calendar.startOfDay(for: part.start), default: Projection()].breakSegment = part
             }
@@ -92,7 +92,7 @@ public enum HistoryExporter {
 
         if record.workSegments.isEmpty,
            record.intervalStart >= start,
-           record.intervalStart <= end {
+           record.intervalStart < end {
             let key = calendar.startOfDay(for: record.intervalStart)
             if days[key] == nil {
                 days[key] = Projection(intervalAnchor: record.intervalStart)
@@ -119,7 +119,7 @@ public enum HistoryExporter {
     private static func clip(
         _ segment: TimeSegment,
         from start: Date,
-        through end: Date
+        before end: Date
     ) -> TimeSegment? {
         let clippedStart = max(segment.start, start)
         let clippedEnd = min(segment.end, end)
