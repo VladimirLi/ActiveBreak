@@ -8,11 +8,21 @@ let package = Package(
     products: [
         .library(name: "ActiveBreakCore", targets: ["ActiveBreakCore"]),
         .executable(name: "ActiveBreak", targets: ["ActiveBreak"]),
+        .executable(name: "ActiveBreakRepair", targets: ["ActiveBreakRepair"]),
+        .executable(name: "ActiveBreakSmoke", targets: ["ActiveBreakSmoke"]),
     ],
     targets: [
         .target(name: "ActiveBreakCore"),
         .executableTarget(
             name: "ActiveBreak",
+            dependencies: ["ActiveBreakCore"]
+        ),
+        .executableTarget(
+            name: "ActiveBreakRepair",
+            dependencies: ["ActiveBreakCore"]
+        ),
+        .executableTarget(
+            name: "ActiveBreakSmoke",
             dependencies: ["ActiveBreakCore"]
         ),
         .testTarget(
