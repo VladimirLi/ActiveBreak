@@ -1,15 +1,15 @@
 import Foundation
 
 public struct IdleActivityDetector: Sendable {
-    public let timestampTolerance: TimeInterval
+    public let timestampEpsilon: TimeInterval
     public let initialActivityWindow: TimeInterval
     public private(set) var lastEventAt: Date?
 
     public init(
-        timestampTolerance: TimeInterval = 0.1,
+        timestampEpsilon: TimeInterval = 0.000_001,
         initialActivityWindow: TimeInterval = 1.5
     ) {
-        self.timestampTolerance = timestampTolerance
+        self.timestampEpsilon = timestampEpsilon
         self.initialActivityWindow = initialActivityWindow
     }
 
@@ -24,7 +24,7 @@ public struct IdleActivityDetector: Sendable {
             lastEventAt = eventAt
             return idle <= initialActivityWindow ? eventAt : nil
         }
-        guard eventAt.timeIntervalSince(previous) > timestampTolerance else { return nil }
+        guard eventAt.timeIntervalSince(previous) > timestampEpsilon else { return nil }
         lastEventAt = eventAt
         return eventAt
     }

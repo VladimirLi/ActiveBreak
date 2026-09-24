@@ -11,6 +11,56 @@ import Testing
     #expect(detector.activityDate(now: start.addingTimeInterval(2), idleSeconds: 2.2) == nil)
 }
 
+@Test func realActivityFiftyMillisecondsLaterIsEmitted() {
+    let start = Date(timeIntervalSince1970: 1_700_000_000)
+    var detector = IdleActivityDetector()
+
+    #expect(detector.activityDate(now: start, idleSeconds: 0) == start)
+    #expect(detector.activityDate(
+        now: start.addingTimeInterval(1),
+        idleSeconds: 0.95
+    ) == start.addingTimeInterval(0.05))
+}
+
+@Test func reconstructionJitterDoesNotDuplicateAnEvent() {
+    let start = Date(timeIntervalSince1970: 1_700_000_000)
+    var detector = IdleActivityDetector()
+
+    #expect(detector.activityDate(now: start, idleSeconds: 0) == start)
+    #expect(detector.activityDate(
+        now: start.addingTimeInterval(1),
+        idleSeconds: 0.999_999_5
+    ) == nil)
+}
+
+@Test func fiftyMillisecondEventPreventsPrematureDeadTimeClosure() {
+    let start = Date(timeIntervalSince1970: 1_700_000_000)
+    var detector = IdleActivityDetector()
+    var reducer = TimerReducer()
+    let settings = BreakSettings(workThreshold: 600, deadTime: 300)
+
+    reducer.activity(
+        at: detector.activityDate(now: start, idleSeconds: 0)!,
+        settings: settings
+    )
+    reducer.activity(
+        at: detector.activityDate(
+            now: start.addingTimeInterval(1),
+            idleSeconds: 0.95
+        )!,
+        settings: settings
+    )
+
+    let boundaryPoll = start.addingTimeInterval(300.02)
+    #expect(detector.activityDate(
+        now: boundaryPoll,
+        idleSeconds: 299.97
+    ) == nil)
+    #expect(reducer.sample(at: boundaryPoll).isEmpty)
+    #expect(reducer.state.mode == .active)
+    #expect(abs(reducer.state.interval!.validatedActive - 0.05) < 0.001)
+}
+
 @Test func latePollUsesActualEventTimeBeforeDeadTimeBoundary() {
     let start = Date(timeIntervalSince1970: 1_700_000_000)
     var detector = IdleActivityDetector()
