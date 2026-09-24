@@ -22,6 +22,14 @@ last activity is provisional work:
 - The displayed countdown MUST include provisional time and MAY jump back when
   dead time is reached.
 
+The permissionless aggregate HID API reports only the latest event at each
+nominal one-second poll, so exact ordering around the dead-time boundary is not
+observable. A newly observed event strictly after dead time and no more than one
+poll interval after it MUST conservatively validate the unresolved gap as work.
+An event later than dead time plus that grace MUST close the prior interval.
+Pure timer operations MUST remain strict unless this grace is explicitly
+supplied.
+
 Remaining time below one hour MUST use `MM:SS`. One hour or more MUST use hours
 and minutes. At zero, exactly one threshold event MUST occur. Notification and
 sound MUST be independently configurable and default on. Overtime MUST continue

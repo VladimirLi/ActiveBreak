@@ -16,7 +16,11 @@ public struct TimerReducer: Sendable {
     }
 
     @discardableResult
-    public mutating func activity(at date: Date, settings: BreakSettings) -> [TimerEffect] {
+    public mutating func activity(
+        at date: Date,
+        settings: BreakSettings,
+        conservativeGrace: TimeInterval = 0
+    ) -> [TimerEffect] {
         guard state.mode != .paused else { return [] }
         guard var interval = state.interval else {
             state = TimerState(
@@ -32,7 +36,11 @@ public struct TimerReducer: Sendable {
         guard date > activityBoundary else { return [] }
 
         let gap = max(0, date.timeIntervalSince(interval.lastActivityAt))
-        guard gap < interval.settings.deadTime else {
+        let grace = max(0, conservativeGrace)
+        let withinGrace = grace > 0
+            && gap > interval.settings.deadTime
+            && gap <= interval.settings.deadTime + grace
+        guard gap < interval.settings.deadTime || withinGrace else {
             let effects = close(interval: interval, breakEnd: date)
             state = TimerState(
                 mode: .active,

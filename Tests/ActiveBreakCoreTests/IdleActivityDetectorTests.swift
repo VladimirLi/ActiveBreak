@@ -2,6 +2,34 @@ import Foundation
 import Testing
 @testable import ActiveBreakCore
 
+@Test func appHIDGraceMatchesPollingCadence() {
+    #expect(PermissionlessHIDPolicy.pollInterval == 1)
+    #expect(PermissionlessHIDPolicy.conservativeGrace == PermissionlessHIDPolicy.pollInterval)
+
+    let start = Date(timeIntervalSince1970: 1_700_000_000)
+    var detector = IdleActivityDetector()
+    var reducer = TimerReducer()
+    let settings = BreakSettings(workThreshold: 1_000, deadTime: 300)
+
+    _ = PermissionlessHIDPolicy.processSample(
+        now: start,
+        idleSeconds: 0,
+        detector: &detector,
+        reducer: &reducer,
+        settings: settings
+    )
+    _ = PermissionlessHIDPolicy.processSample(
+        now: start.addingTimeInterval(300.1),
+        idleSeconds: 0.05,
+        detector: &detector,
+        reducer: &reducer,
+        settings: settings
+    )
+
+    #expect(reducer.state.mode == .active)
+    #expect(abs(reducer.state.interval!.validatedActive - 300.05) < 0.001)
+}
+
 @Test func repeatedIdleSamplesFromOneEventEmitActivityOnce() {
     let start = Date(timeIntervalSince1970: 1_700_000_000)
     var detector = IdleActivityDetector()

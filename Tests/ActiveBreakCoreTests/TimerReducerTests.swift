@@ -19,6 +19,50 @@ private let start = Date(timeIntervalSince1970: 1_700_000_000)
     #expect(reducer.state.interval?.validatedActive == 299)
 }
 
+@Test func conservativeGraceValidatesAmbiguousPostBoundaryActivity() {
+    var reducer = TimerReducer()
+    let longThreshold = BreakSettings(workThreshold: 1_000, deadTime: 300)
+    reducer.activity(at: start, settings: longThreshold)
+
+    #expect(reducer.activity(
+        at: start.addingTimeInterval(300.05),
+        settings: longThreshold,
+        conservativeGrace: 1
+    ).isEmpty)
+    #expect(reducer.state.mode == .active)
+    #expect(abs(reducer.state.interval!.validatedActive - 300.05) < 0.001)
+}
+
+@Test func activityBeyondConservativeGraceClosesAndRestarts() throws {
+    var reducer = TimerReducer()
+    let longThreshold = BreakSettings(workThreshold: 1_000, deadTime: 300)
+    reducer.activity(at: start, settings: longThreshold)
+    let eventAt = start.addingTimeInterval(301.01)
+
+    let record = try #require(loggedRecord(from: reducer.activity(
+        at: eventAt,
+        settings: longThreshold,
+        conservativeGrace: 1
+    )))
+    #expect(record.activeDuration == 0)
+    #expect(abs(record.breakDuration - 301.01) < 0.001)
+    #expect(reducer.state.mode == .active)
+    #expect(reducer.state.interval?.startedAt == eventAt)
+}
+
+@Test func defaultActivityHandlingRemainsStrictWithoutGrace() throws {
+    var reducer = TimerReducer()
+    let longThreshold = BreakSettings(workThreshold: 1_000, deadTime: 300)
+    reducer.activity(at: start, settings: longThreshold)
+
+    let effects = reducer.activity(
+        at: start.addingTimeInterval(300.05),
+        settings: longThreshold
+    )
+    #expect(loggedRecord(from: effects) != nil)
+    #expect(reducer.state.interval?.startedAt == start.addingTimeInterval(300.05))
+}
+
 @Test func inactivityAtFiveMinutesReclassifiesWholeGapAsBreak() throws {
     var reducer = TimerReducer()
     reducer.activity(at: start, settings: settings)

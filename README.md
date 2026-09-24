@@ -25,6 +25,12 @@ that unresolved gap from active time, records it as a break, closes the
 interval, and returns to idle. The menu countdown can therefore jump back when
 dead time is reached.
 
+The permissionless aggregate HID API exposes only the latest event seen at each
+one-second poll. If that event is first observed no more than one polling
+interval after the dead-time boundary, ActiveBreak conservatively counts the
+gap as work because an earlier event may have occurred between polls. Events
+later than that one-second grace close the old interval normally.
+
 At zero, ActiveBreak sends one notification. Notification banners and sound can
 be disabled independently. The timer continues below zero until dead time,
 Pause, sleep (including while the app is closed), reboot, or a sufficiently

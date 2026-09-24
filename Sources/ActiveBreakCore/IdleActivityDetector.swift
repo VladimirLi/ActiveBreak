@@ -1,5 +1,29 @@
 import Foundation
 
+public enum PermissionlessHIDPolicy {
+    public static let pollInterval: TimeInterval = 1
+    public static let conservativeGrace: TimeInterval = pollInterval
+
+    public static func processSample(
+        now: Date,
+        idleSeconds: TimeInterval,
+        detector: inout IdleActivityDetector,
+        reducer: inout TimerReducer,
+        settings: BreakSettings
+    ) -> [TimerEffect] {
+        var effects: [TimerEffect] = []
+        if let eventAt = detector.activityDate(now: now, idleSeconds: idleSeconds) {
+            effects += reducer.activity(
+                at: eventAt,
+                settings: settings,
+                conservativeGrace: conservativeGrace
+            )
+        }
+        effects += reducer.sample(at: now)
+        return effects
+    }
+}
+
 public struct IdleActivityDetector: Sendable {
     public let timestampEpsilon: TimeInterval
     public let initialActivityWindow: TimeInterval

@@ -53,7 +53,7 @@ final class AppModel: NSObject, ObservableObject {
         save()
         configureLaunchAtLogin(enabled: data.settings.launchAtLogin)
         timer = Timer.scheduledTimer(
-            timeInterval: 1,
+            timeInterval: PermissionlessHIDPolicy.pollInterval,
             target: self,
             selector: #selector(poll),
             userInfo: nil,
@@ -197,10 +197,13 @@ final class AppModel: NSObject, ObservableObject {
             .hidSystemState,
             eventType: CGEventType(rawValue: UInt32.max)!
         )
-        if let eventAt = activityDetector.activityDate(now: now, idleSeconds: idle) {
-            apply(reducer.activity(at: eventAt, settings: data.settings))
-        }
-        apply(reducer.sample(at: now))
+        apply(PermissionlessHIDPolicy.processSample(
+            now: now,
+            idleSeconds: idle,
+            detector: &activityDetector,
+            reducer: &reducer,
+            settings: data.settings
+        ))
     }
 
     private func save() {
