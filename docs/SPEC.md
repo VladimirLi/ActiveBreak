@@ -53,6 +53,18 @@ state on wake. Lock MUST follow the ordinary dead-time rule.
 Launch at login MUST default on and use `SMAppService`. Failures MUST be shown
 without damaging timer or history state.
 
+Every active interval MUST have one stable identity that survives persistence.
+Closing an interval MUST consume its active state, and applying a repeated
+closure effect with that identity MUST NOT append another history record.
+Samples, wake, relaunch reconciliation, pause, or quit handling after closure
+MUST therefore leave history unchanged.
+
+The one-second HID sample clock MUST NOT itself be a published SwiftUI value.
+Visible status state MUST publish only when its rendered text or urgency
+changes. Persistence MUST occur for material state changes, explicit lifecycle
+flushes, and a checkpoint no more than 60 seconds after the prior successful
+save; unchanged one-second samples MUST NOT write the state file.
+
 ## History and reporting
 
 History MUST remain until one confirmed Delete All History action. Each record
@@ -70,6 +82,34 @@ selected calendar-day range, ending exclusively at the next local midnight,
 and a native save panel. Exported records MUST be
 clipped to that range and split at current-local-midnight boundaries; exported
 timestamps and durations MUST NOT extend outside the selected range.
+
+## Diagnostics
+
+ActiveBreak MUST use Apple's unified log with subsystem
+`com.vladimirli.ActiveBreak` and bounded `timer`, `lifecycle`, `persistence`,
+and `login-item` categories. Diagnostics MUST include enough structured fields
+to reconstruct sampled idle duration, inferred activity time, timer state
+before and after, closure reason, configured threshold and dead time,
+validated/provisional/overtime duration, emitted effect kinds and record ID,
+persistence outcome, sleep/wake/relaunch/quit handling, and login-item failure
+type.
+
+Diagnostics MUST NOT include raw keys, pointer coordinates, application names,
+window titles, screenshots, raw input events, or unbounded error dumps.
+
+## Repair and smoke safety
+
+History repair preview MUST leave its input unchanged and report before/after
+counts, removed and retained IDs, and active/overtime duration deltas. Duplicate
+closure artifacts MUST be matched by exact interval identity and zero-work
+shape; a unique legitimate zero-work interval and near-duplicates MUST remain.
+Apply mode MUST require an explicit flag, create a timestamped backup beside
+the state file, atomically replace it, validate the decoded result and
+aggregates, and be idempotent.
+
+Smoke verification MUST use the non-GUI core harness with an isolated state
+path, finish through normal process return, prove the live state fingerprint is
+unchanged, and prove no existing or new `ActiveBreak` crash report changed.
 
 ## Distribution
 

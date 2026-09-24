@@ -39,7 +39,8 @@ long app shutdown closes the interval.
 
 Pause closes the current interval using validated work only. Resume waits for
 new activity. History is retained locally until **Delete All History** is
-confirmed.
+confirmed. Each interval has one stable identifier, and applying the same
+closure more than once cannot create a second history record.
 
 ## Requirements
 
@@ -108,14 +109,51 @@ All settings, timer state, and history are stored as JSON in:
 There is no network service, telemetry, account, cloud sync, or app-level
 tracking.
 
-Automated runs can set `ACTIVEBREAK_STATE_FILE` to isolate state. The smoke
-script uses this override and disables login-item mutation.
+ActiveBreak writes bounded local diagnostics to Apple's unified log under the
+`com.vladimirli.ActiveBreak` subsystem, with `timer`, `lifecycle`,
+`persistence`, and `login-item` categories:
+
+```sh
+log show --last 1h --predicate 'subsystem == "com.vladimirli.ActiveBreak"'
+```
+
+Diagnostics include timing decisions, state transitions, effect kinds,
+persistence outcomes, lifecycle handling, and login-item outcomes. They never
+include keys, pointer coordinates, app names, window titles, screenshots, or
+raw input events.
+
+State is saved when it changes, at lifecycle boundaries, and at most every 60
+seconds as a checkpoint. An abrupt process loss can therefore lose at most the
+current provisional interval since the latest checkpoint.
+
+The smoke script runs the non-GUI `ActiveBreakSmoke` executable with an
+isolated `ACTIVEBREAK_STATE_FILE`, exits normally, verifies that live state is
+unchanged, and fails if an `ActiveBreak` crash report was added or modified.
+
+## History repair
+
+Build the tools, then preview a state file without modifying it:
+
+```sh
+swift build -c release --disable-sandbox
+.build/release/ActiveBreakRepair \
+  --state "$HOME/Library/Application Support/ActiveBreak/state.json" \
+  --manifest .build/history-repair-preview.json
+```
+
+Add `--candidate .build/repaired-state.json` to write a separate repaired copy
+for review or a second idempotency preview. `--apply` is deliberately explicit:
+it creates a timestamped backup beside the original, atomically replaces the
+state, and validates the result. Keep the backup until the repaired history has
+been reviewed.
 
 ## Architecture
 
 - `ActiveBreakCore`: pure reducer, persistence, aggregation, and export logic
 - `ActiveBreak`: SwiftUI menu bar, settings, dashboard, notifications, and
   `SMAppService` integration
+- `ActiveBreakRepair`: preview/apply history repair command
+- `ActiveBreakSmoke`: isolated non-GUI persistence and lifecycle harness
 - `scripts/package-app.sh`: release build and unsigned `.app` assembly
 
 The normative behavior is in [`docs/SPEC.md`](docs/SPEC.md).
@@ -128,7 +166,8 @@ The normative behavior is in [`docs/SPEC.md`](docs/SPEC.md).
   window reports the macOS error without changing the timer.
 - macOS controls whether notification banners and menu-bar text colors are
   shown exactly as requested.
-- History is a local JSON file with no backup or sync.
+- History is a local JSON file with no sync. Repair apply mode creates a local
+  timestamped backup, but ordinary saves do not.
 
 ## License
 
