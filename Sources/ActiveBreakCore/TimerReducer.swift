@@ -34,7 +34,8 @@ public struct TimerReducer: Sendable {
             return effects
         }
 
-        interval.validatedActive += gap
+        appendValidated(interval.unresolvedWork(through: date), to: &interval)
+        interval.excludedGaps.removeAll()
         interval.lastActivityAt = date
         state.interval = interval
         return thresholdEffects(at: date)
@@ -67,11 +68,14 @@ public struct TimerReducer: Sendable {
     public mutating func restore(savedAt: Date, now: Date) -> [TimerEffect] {
         guard state.mode == .active, var interval = state.interval else { return [] }
         let downtime = max(0, now.timeIntervalSince(savedAt))
-        if downtime >= interval.settings.deadTime {
+        let totalGap = max(0, now.timeIntervalSince(interval.lastActivityAt))
+        if totalGap >= interval.settings.deadTime {
             state = TimerState()
             return close(interval: interval, breakEnd: now)
         }
-        interval.lastActivityAt = interval.lastActivityAt.addingTimeInterval(downtime)
+        if downtime > 0 {
+            interval.excludedGaps.append(TimeSegment(start: savedAt, end: now))
+        }
         state.interval = interval
         return []
     }
@@ -116,10 +120,48 @@ public struct TimerReducer: Sendable {
             intervalStart: interval.startedAt,
             intervalEnd: interval.lastActivityAt,
             activeDuration: interval.validatedActive,
-            overtimeDuration: max(0, interval.validatedActive - interval.settings.workThreshold),
+            overtimeDuration: interval.overtime,
             breakStart: breakEnd == nil ? nil : interval.lastActivityAt,
-            breakEnd: breakEnd
+            breakEnd: breakEnd,
+            workSegments: interval.workSegments
         )
+    }
+
+    private func appendValidated(_ segments: [TimeSegment], to interval: inout ActiveInterval) {
+        var validated = interval.validatedActive
+        for segment in segments where segment.duration > 0 {
+            let regularRemaining = max(0, interval.settings.workThreshold - validated)
+            if regularRemaining > 0 {
+                let regularEnd = min(segment.end, segment.start.addingTimeInterval(regularRemaining))
+                append(TimeSegment(start: segment.start, end: regularEnd), to: &interval.workSegments)
+                validated += regularEnd.timeIntervalSince(segment.start)
+                if regularEnd < segment.end {
+                    append(TimeSegment(
+                        start: regularEnd,
+                        end: segment.end,
+                        isOvertime: true
+                    ), to: &interval.workSegments)
+                    validated += segment.end.timeIntervalSince(regularEnd)
+                }
+            } else {
+                append(TimeSegment(
+                    start: segment.start,
+                    end: segment.end,
+                    isOvertime: true
+                ), to: &interval.workSegments)
+                validated += segment.duration
+            }
+        }
+    }
+
+    private func append(_ segment: TimeSegment, to segments: inout [TimeSegment]) {
+        if let last = segments.last,
+           last.isOvertime == segment.isOvertime,
+           abs(last.end.timeIntervalSince(segment.start)) < 0.001 {
+            segments[segments.count - 1].end = segment.end
+        } else {
+            segments.append(segment)
+        }
     }
 }
 

@@ -73,7 +73,20 @@ unsigned bundle, run `./scripts/package-app.sh` in Terminal.
 Dashboard provides daily, weekly, and monthly summaries for active time,
 overtime, break count, and average interval. CSV and JSON exports use the
 selected inclusive date range. Absolute timestamps are stored; grouping is
-recomputed in the Mac's current local timezone.
+recomputed in the Mac's current local timezone. Export rows are clipped to the
+selected range and split at local midnight. JSON records include exact
+`workSegments`, each marked as regular or overtime.
+
+CSV columns are:
+
+```text
+id,interval_start,interval_end,active_seconds,overtime_seconds,break_start,break_end,break_seconds
+```
+
+JSON is an array of records with `id`, `intervalStart`, `intervalEnd`,
+`activeDuration`, `overtimeDuration`, `breakStart`, `breakEnd`,
+`breakDuration`, and `workSegments`. Older state files without timeline
+segments are decoded into the closest equivalent contiguous timeline.
 
 ## Data and privacy
 
@@ -85,6 +98,9 @@ All settings, timer state, and history are stored as JSON in:
 
 There is no network service, telemetry, account, cloud sync, or app-level
 tracking.
+
+Automated runs can set `ACTIVEBREAK_STATE_FILE` to isolate state. The smoke
+script uses this override and disables login-item mutation.
 
 ## Architecture
 

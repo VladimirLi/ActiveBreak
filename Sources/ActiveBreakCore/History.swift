@@ -50,7 +50,8 @@ public enum HistoryAggregator {
     ) -> [HistorySummary] {
         var summaries: [Date: HistorySummary] = [:]
         for record in records {
-            for segment in split(record: record, calendar: calendar) {
+            var intervalBuckets: Set<Date> = []
+            for segment in record.workSegments.flatMap({ split($0, calendar: calendar) }) {
                 let key = bucket(for: segment.start, period: period, calendar: calendar)
                 var summary = summaries[key] ?? HistorySummary(
                     start: key,
@@ -59,70 +60,61 @@ public enum HistoryAggregator {
                     breakCount: 0,
                     intervalCount: 0
                 )
-                summary.activeDuration += segment.active
-                summary.overtimeDuration += segment.overtime
-                summary.breakCount += segment.breakCount
-                summary.intervalCount += segment.intervalCount
+                summary.activeDuration += segment.duration
+                summary.overtimeDuration += segment.isOvertime ? segment.duration : 0
+                summaries[key] = summary
+                intervalBuckets.insert(key)
+            }
+            if intervalBuckets.isEmpty {
+                intervalBuckets.insert(bucket(for: record.intervalStart, period: period, calendar: calendar))
+            }
+            for key in intervalBuckets {
+                var summary = summaries[key] ?? HistorySummary(
+                    start: key,
+                    activeDuration: 0,
+                    overtimeDuration: 0,
+                    breakCount: 0,
+                    intervalCount: 0
+                )
+                summary.intervalCount += 1
+                summaries[key] = summary
+            }
+            if let breakStart = record.breakStart, let breakEnd = record.breakEnd {
+                let key = bucket(for: breakStart, period: period, calendar: calendar)
+                var summary = summaries[key] ?? HistorySummary(
+                    start: key,
+                    activeDuration: 0,
+                    overtimeDuration: 0,
+                    breakCount: 0,
+                    intervalCount: 0
+                )
+                if breakEnd > breakStart {
+                    summary.breakCount += 1
+                }
                 summaries[key] = summary
             }
         }
         return summaries.values.sorted { $0.start < $1.start }
     }
 
-    private struct Segment {
-        let start: Date
-        let active: TimeInterval
-        let overtime: TimeInterval
-        let breakCount: Int
-        let intervalCount: Int
-    }
-
-    private static func split(record: HistoryRecord, calendar: Calendar) -> [Segment] {
-        var result: [Segment] = []
-        let intervalSpan = max(0, record.intervalEnd.timeIntervalSince(record.intervalStart))
-        for range in midnightRanges(from: record.intervalStart, to: record.intervalEnd, calendar: calendar) {
-            let ratio = intervalSpan == 0 ? 1 : range.duration / intervalSpan
-            result.append(Segment(
-                start: range.start,
-                active: record.activeDuration * ratio,
-                overtime: record.overtimeDuration * ratio,
-                breakCount: 0,
-                intervalCount: 1
-            ))
-        }
-
-        if let breakStart = record.breakStart, let breakEnd = record.breakEnd {
-            for (index, range) in midnightRanges(from: breakStart, to: breakEnd, calendar: calendar).enumerated() {
-                result.append(Segment(
-                    start: range.start,
-                    active: 0,
-                    overtime: 0,
-                    breakCount: index == 0 ? 1 : 0,
-                    intervalCount: 0
-                ))
-            }
-        }
-        return result
-    }
-
-    private static func midnightRanges(
-        from start: Date,
-        to end: Date,
+    public static func split(
+        _ segment: TimeSegment,
         calendar: Calendar
-    ) -> [Range<Date>] {
-        guard end >= start else { return [] }
-        if end == start {
-            return [start..<start.addingTimeInterval(0.000_001)]
-        }
-        var ranges: [Range<Date>] = []
-        var cursor = start
-        while cursor < end {
+    ) -> [TimeSegment] {
+        guard segment.end > segment.start else { return [] }
+        var segments: [TimeSegment] = []
+        var cursor = segment.start
+        while cursor < segment.end {
             let next = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: cursor))!
-            let boundary = min(next, end)
-            ranges.append(cursor..<boundary)
+            let boundary = min(next, segment.end)
+            segments.append(TimeSegment(
+                start: cursor,
+                end: boundary,
+                isOvertime: segment.isOvertime
+            ))
             cursor = boundary
         }
-        return ranges
+        return segments
     }
 
     private static func bucket(
@@ -139,11 +131,6 @@ public enum HistoryAggregator {
             return calendar.dateInterval(of: .month, for: date)!.start
         }
     }
-}
-
-private extension Range where Bound == Date {
-    var duration: TimeInterval { upperBound.timeIntervalSince(lowerBound) }
-    var start: Date { lowerBound }
 }
 
 public extension JSONEncoder {

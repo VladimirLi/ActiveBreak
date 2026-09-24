@@ -76,6 +76,37 @@ private let start = Date(timeIntervalSince1970: 1_700_000_000)
     #expect(reducer.state.interval?.validatedActive == 10)
 }
 
+@Test func relaunchUsesTotalUnresolvedGapForDeadTime() throws {
+    var reducer = TimerReducer()
+    reducer.activity(at: start, settings: settings)
+    let effects = reducer.restore(
+        savedAt: start.addingTimeInterval(299),
+        now: start.addingTimeInterval(301)
+    )
+    let record = try #require(loggedRecord(from: effects))
+
+    #expect(record.activeDuration == 0)
+    #expect(record.breakDuration == 301)
+    #expect(reducer.state.mode == .idle)
+}
+
+@Test func shortTotalRelaunchGapExcludesOnlyAppOffTime() {
+    var reducer = TimerReducer()
+    let longThreshold = BreakSettings(workThreshold: 1_000, deadTime: 300)
+    reducer.activity(at: start, settings: longThreshold)
+    reducer.restore(
+        savedAt: start.addingTimeInterval(100),
+        now: start.addingTimeInterval(102)
+    )
+    reducer.activity(at: start.addingTimeInterval(200), settings: longThreshold)
+
+    #expect(reducer.state.interval?.validatedActive == 198)
+    #expect(reducer.state.interval?.workSegments == [
+        TimeSegment(start: start, end: start.addingTimeInterval(100)),
+        TimeSegment(start: start.addingTimeInterval(102), end: start.addingTimeInterval(200)),
+    ])
+}
+
 @Test func longRelaunchCountsAsBreakAndClearsState() throws {
     var reducer = TimerReducer()
     reducer.activity(at: start, settings: settings)

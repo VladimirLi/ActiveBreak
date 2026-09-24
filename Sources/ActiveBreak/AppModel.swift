@@ -15,15 +15,19 @@ final class AppModel: NSObject, ObservableObject {
     private let store: HistoryStore
     private var reducer: TimerReducer
     private var timer: Timer?
-    private var previousIdle: TimeInterval?
+    private var activityDetector = IdleActivityDetector()
     private var persistenceBlocked: Bool
 
     override init() {
-        let support = FileManager.default.urls(
+        let applicationSupport = FileManager.default.urls(
             for: .applicationSupportDirectory,
             in: .userDomainMask
-        ).first!.appendingPathComponent("ActiveBreak", isDirectory: true)
-        let store = HistoryStore(url: support.appendingPathComponent("state.json"))
+        ).first!
+        let stateURL = StateFileLocator.url(
+            environment: ProcessInfo.processInfo.environment,
+            applicationSupport: applicationSupport
+        )
+        let store = HistoryStore(url: stateURL)
         let loaded: PersistedData
         let loadError: String?
         do {
@@ -74,17 +78,16 @@ final class AppModel: NSObject, ObservableObject {
             .hidSystemState,
             eventType: CGEventType(rawValue: UInt32.max)!
         )
-        let activityDetected = idle <= 1.5 || previousIdle.map { idle + 0.25 < $0 } == true
-        previousIdle = idle
-        apply(activityDetected
-            ? reducer.activity(at: now, settings: data.settings)
-            : reducer.sample(at: now))
+        if let eventAt = activityDetector.activityDate(now: now, idleSeconds: idle) {
+            apply(reducer.activity(at: eventAt, settings: data.settings))
+        }
+        apply(reducer.sample(at: now))
         save()
     }
 
     @objc private func didWake() {
         now = Date()
-        previousIdle = nil
+        activityDetector = IdleActivityDetector()
         apply(reducer.wake(at: now))
         save()
     }

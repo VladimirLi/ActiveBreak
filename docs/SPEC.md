@@ -48,7 +48,8 @@ without damaging timer or history state.
 
 History MUST remain until one confirmed Delete All History action. Each record
 MUST include absolute interval start/end timestamps, validated active duration,
-overtime, and break duration. Pause-closed intervals MUST be retained.
+overtime, break duration, and exact validated work segments with their
+regular/overtime classification. Pause-closed intervals MUST be retained.
 
 Intervals and breaks MUST be split at local midnight for aggregation. Stored
 timestamps remain absolute and MUST be regrouped using the current local
@@ -56,7 +57,9 @@ timezone.
 
 Dashboard MUST provide daily, weekly, and monthly summaries of active time,
 overtime, break count, and average interval. CSV and JSON export MUST use an
-inclusive selected date range and a native save panel.
+inclusive selected date range and a native save panel. Exported records MUST be
+clipped to that range and split at current-local-midnight boundaries; exported
+timestamps and durations MUST NOT extend outside the selected range.
 
 ## Distribution
 

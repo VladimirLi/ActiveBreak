@@ -8,6 +8,7 @@ RUNNER_SOURCE="${TMPDIR:-/tmp}/activebreak-test-main.swift"
 RUNNER="${TMPDIR:-/tmp}/activebreak-test-runner"
 
 mkdir -p "$MODULE_CACHE"
+trap 'rm -f "$RUNNER_SOURCE" "$RUNNER"' EXIT INT TERM
 CLANG_MODULE_CACHE_PATH="$MODULE_CACHE" \
 SWIFTPM_MODULECACHE_OVERRIDE="$MODULE_CACHE" \
 swift test --package-path "$ROOT" --disable-sandbox
