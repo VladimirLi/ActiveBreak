@@ -79,13 +79,23 @@ unsigned bundle, run `./scripts/package-app.sh` in Terminal.
 
 ## Dashboard and exports
 
-Dashboard provides daily, weekly, and monthly summaries for active time,
-overtime, break count, and average interval. CSV and JSON exports use the
-selected calendar-day range, represented as a half-open interval ending at
-the next local midnight. Absolute timestamps are stored; grouping is
-recomputed in the Mac's current local timezone. Export rows are clipped to the
-selected range and split at local midnight. JSON records include exact
-`workSegments`, each marked as regular or overtime.
+Dashboard shows a 3, 7, or 14 day activity timeline, defaulting to 7 days.
+Days are aligned left to right on one shared vertical local-time scale. Empty
+hours before and after all visible activity are compressed, while unusual-hour
+activity expands the shared scale for every day. Blue blocks are validated
+work, red blocks are overtime, and breaks remain empty. Select a block to see
+its exact start, end, duration, and overtime status.
+
+The summary reports exact visible active time and overtime, the longest visible
+completed interval, and the local hour containing the most active time. Ties
+for most active hour choose the earlier hour. Previous, Today, and next controls
+navigate by the selected range, and next never moves beyond today.
+
+CSV and JSON exports use the visible calendar-day range, represented as a
+half-open interval ending at the next local midnight. Absolute timestamps are
+stored; grouping is recomputed in the Mac's current local timezone. Export rows
+are clipped to the selected range and split at local midnight. JSON records
+include exact `workSegments`, each marked as regular or overtime.
 
 CSV columns are:
 

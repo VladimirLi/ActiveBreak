@@ -17,7 +17,7 @@ struct ActiveBreakApp: App {
         Window("Dashboard", id: "dashboard") {
             DashboardView(model: model)
         }
-        .defaultSize(width: 760, height: 520)
+        .defaultSize(width: 1_040, height: 680)
 
         Settings {
             SettingsView(model: model)

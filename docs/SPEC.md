@@ -76,12 +76,31 @@ Intervals and breaks MUST be split at local midnight for aggregation. Stored
 timestamps remain absolute and MUST be regrouped using the current local
 timezone.
 
-Dashboard MUST provide daily, weekly, and monthly summaries of active time,
-overtime, break count, and average interval. CSV and JSON export MUST use an
-selected calendar-day range, ending exclusively at the next local midnight,
-and a native save panel. Exported records MUST be
-clipped to that range and split at current-local-midnight boundaries; exported
-timestamps and durations MUST NOT extend outside the selected range.
+Dashboard MUST provide exactly 3, 7, and 14 day ranges and default to 7 days.
+Visible days MUST be arranged left to right as aligned vertical timelines with
+local time flowing top to bottom. Every visible day MUST use one shared scale
+derived from all visible work. Universally empty leading and trailing hours MAY
+be compressed with an explicit marker; any hour containing visible work MUST
+remain expanded for every day.
+
+Validated work MUST be blue, overtime MUST use a distinct warm/red treatment,
+and breaks MUST remain empty. Selecting a work block MUST show a compact
+popover with its exact start, end, duration, and overtime status. Summary
+metrics MUST report exact visible active time and overtime, the longest visible
+completed interval contribution, and the local hour containing the greatest
+active duration. Most-active-hour ties MUST choose the earlier hour and an
+empty selection MUST show no hour.
+
+Date navigation MUST provide previous, Today, and next controls. Navigation
+MUST move by the selected range and MUST NOT advance beyond today. Changing
+range MUST preserve the visible end date where possible. Export and confirmed
+Delete All History actions MUST remain available but secondary to the timeline.
+
+CSV and JSON export MUST use the selected visible calendar-day range, ending
+exclusively at the next local midnight, and a native save panel. Exported
+records MUST be clipped to that range and split at current-local-midnight
+boundaries; exported timestamps and durations MUST NOT extend outside the
+selected range.
 
 ## Diagnostics
 
