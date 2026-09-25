@@ -418,7 +418,9 @@ private struct ActivityTimelineView: View {
         .popover(item: $selectedSegment, arrowEdge: .trailing) { segment in
             ActivityPopover(segment: segment)
         }
+        // Arrow keys stay available; the selected column is the only selection outline.
         .focusable()
+        .focusEffectDisabled()
         .onKeyPress(.leftArrow) { moveSelection(by: -1) }
         .onKeyPress(.rightArrow) { moveSelection(by: 1) }
     }

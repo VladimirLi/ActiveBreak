@@ -93,3 +93,21 @@ private func declaration(_ header: String, in source: String) throws -> Substrin
     #expect(cursor.contains(".pointerStyle(.link)"))
     #expect(cursor.contains("NSCursor.pointingHand"))
 }
+
+@Test func timelineKeepsArrowKeyFocusWithoutNativeFocusRing() throws {
+    let source = try viewsSource()
+    let timeline = try declaration("private struct ActivityTimelineView: View", in: source)
+        .split(whereSeparator: \.isWhitespace)
+        .joined(separator: " ")
+
+    // The selected column is the only selection outline; the whole-calendar focus ring is suppressed.
+    #expect(timeline.contains(
+        ".focusable() .focusEffectDisabled() .onKeyPress(.leftArrow) { moveSelection(by: -1) } "
+            + ".onKeyPress(.rightArrow) { moveSelection(by: 1) }"
+    ))
+    #expect(source.components(separatedBy: ".focusEffectDisabled()").count == 2)
+
+    let day = try declaration("private struct TimelineDayView: View", in: source)
+    #expect(!day.contains("focusEffectDisabled"))
+    #expect(day.contains(".strokeBorder(Color.accentColor, lineWidth: 2)"))
+}
