@@ -147,8 +147,14 @@ private func declaration(_ header: String, in source: String) throws -> Substrin
     #expect(timeline.contains(
         "DashboardLayout.dayRegionWidth(timelineWidth: Double(timelineWidth))"
     ))
-    #expect(timeline.contains("DashboardLayout.responsiveDayWidth( availableDayRegionWidth: dayRegionWidth,"))
-    #expect(timeline.contains("DashboardLayout.responsiveContentWidth( availableDayRegionWidth: dayRegionWidth,"))
+    #expect(timeline.contains("DashboardColumnLayout.make( availableDayRegionWidth: dayRegionWidth,"))
+    #expect(timeline.contains("CGFloat(columnLayout.dayWidth)"))
+    #expect(timeline.contains("CGFloat(columnLayout.contentWidth)"))
+    // Width changes that make the days scroll keep the selected day in view.
+    #expect(timeline.contains(
+        ".onChange(of: columnLayout) { previous, current in "
+            + "if current.needsSelectionReveal(after: previous) { proxy.scrollTo(selectedDay) } }"
+    ))
     #expect(timeline.contains("width: dayWidth,"))
     #expect(timeline.contains(".frame(width: contentWidth)"))
     #expect(timeline.contains(".frame(maxWidth: .infinity, alignment: .leading)"))

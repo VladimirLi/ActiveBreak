@@ -328,6 +328,44 @@ public struct DashboardAxisTick: Equatable, Sendable {
     public let label: String
 }
 
+/// Resolved day-column geometry for one measured viewport.
+public struct DashboardColumnLayout: Equatable, Sendable {
+    public let dayWidth: Double
+    public let contentWidth: Double
+    public let viewportWidth: Double
+
+    public init(dayWidth: Double, contentWidth: Double, viewportWidth: Double) {
+        self.dayWidth = dayWidth
+        self.contentWidth = contentWidth
+        self.viewportWidth = viewportWidth
+    }
+
+    public static func make(
+        availableDayRegionWidth available: Double,
+        range: DashboardRange
+    ) -> DashboardColumnLayout {
+        DashboardColumnLayout(
+            dayWidth: DashboardLayout.responsiveDayWidth(availableDayRegionWidth: available, range: range),
+            contentWidth: DashboardLayout.responsiveContentWidth(
+                availableDayRegionWidth: available,
+                range: range
+            ),
+            viewportWidth: available.isFinite ? max(0, available) : 0
+        )
+    }
+
+    public var scrolls: Bool { contentWidth > viewportWidth }
+
+    /// A resize can push the selected day out of a scrolling viewport; fitting days are always
+    /// visible, and changes under one point are ignored so layout jitter cannot cause scroll churn.
+    public func needsSelectionReveal(after previous: DashboardColumnLayout) -> Bool {
+        guard scrolls else { return false }
+        return !previous.scrolls
+            || abs(viewportWidth - previous.viewportWidth) >= 1
+            || abs(contentWidth - previous.contentWidth) >= 1
+    }
+}
+
 public enum DashboardLayout {
     public enum HorizontalRegion: Equatable, Sendable {
         case pinned

@@ -548,3 +548,40 @@ private func projectedSegment(
     return DashboardProjection.make(records: [record], range: range, calendar: utc)
         .days.flatMap(\.segments).first
 }
+
+@Test func columnLayoutReportsWhenDaysScroll() {
+    let wide = DashboardColumnLayout.make(availableDayRegionWidth: 1_400, range: .fourteenDays)
+    let narrow = DashboardColumnLayout.make(availableDayRegionWidth: 513, range: .fourteenDays)
+
+    #expect(wide == DashboardColumnLayout(dayWidth: 100, contentWidth: 1_400, viewportWidth: 1_400))
+    #expect(!wide.scrolls)
+    #expect(narrow == DashboardColumnLayout(dayWidth: 72, contentWidth: 1_008, viewportWidth: 513))
+    #expect(narrow.scrolls)
+    #expect(DashboardColumnLayout.make(availableDayRegionWidth: .nan, range: .sevenDays)
+        == DashboardColumnLayout(dayWidth: 72, contentWidth: 504, viewportWidth: 0))
+}
+
+@Test func resizingKeepsSelectedDayVisibleOnlyWhenColumnsScroll() {
+    func layout(_ width: Double, _ range: DashboardRange = .fourteenDays) -> DashboardColumnLayout {
+        DashboardColumnLayout.make(availableDayRegionWidth: width, range: range)
+    }
+
+    // Shrinking a fitting 14-day schedule into a scrolling strip must re-reveal the selection.
+    #expect(layout(513).needsSelectionReveal(after: layout(1_400)))
+    // Resizing while scrolling moves the viewport edge, so the selection is revealed again.
+    #expect(layout(600).needsSelectionReveal(after: layout(513)))
+    #expect(layout(513).needsSelectionReveal(after: layout(600)))
+    // The first real measurement after the zero-width initial pass reveals the selection.
+    #expect(layout(513).needsSelectionReveal(after: layout(0)))
+    // A range switch that starts scrolling at the same width reveals the selection.
+    #expect(layout(513, .fourteenDays).needsSelectionReveal(after: layout(513, .sevenDays)))
+
+    // When every day fits there is nothing to reveal.
+    #expect(!layout(1_400).needsSelectionReveal(after: layout(513)))
+    #expect(!layout(900, .threeDays).needsSelectionReveal(after: layout(513, .threeDays)))
+    #expect(!layout(513, .sevenDays).needsSelectionReveal(after: layout(1_400, .sevenDays)))
+    // Sub-point geometry jitter never triggers scrolling churn.
+    #expect(!layout(513.4).needsSelectionReveal(after: layout(513)))
+    #expect(!layout(512.6).needsSelectionReveal(after: layout(513)))
+    #expect(!layout(513).needsSelectionReveal(after: layout(513)))
+}

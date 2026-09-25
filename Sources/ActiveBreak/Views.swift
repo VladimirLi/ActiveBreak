@@ -336,19 +336,15 @@ private struct ActivityTimelineView: View {
         DashboardLayout.dayRegionWidth(timelineWidth: Double(timelineWidth))
     }
 
-    private var dayWidth: CGFloat {
-        DashboardLayout.responsiveDayWidth(
+    private var columnLayout: DashboardColumnLayout {
+        DashboardColumnLayout.make(
             availableDayRegionWidth: dayRegionWidth,
             range: dashboard.range.range
         )
     }
 
-    private var contentWidth: CGFloat {
-        DashboardLayout.responsiveContentWidth(
-            availableDayRegionWidth: dayRegionWidth,
-            range: dashboard.range.range
-        )
-    }
+    private var dayWidth: CGFloat { CGFloat(columnLayout.dayWidth) }
+    private var contentWidth: CGFloat { CGFloat(columnLayout.contentWidth) }
 
     private var tickOffsets: [Int] {
         let first = Int(ceil(dashboard.scale.expandedStartOffset / 3_600) * 3_600)
@@ -424,6 +420,13 @@ private struct ActivityTimelineView: View {
                 .onAppear { proxy.scrollTo(selectedDay) }
                 .onChange(of: selectedDay) { proxy.scrollTo(selectedDay) }
                 .onChange(of: dashboard.range) { proxy.scrollTo(selectedDay) }
+                // With no anchor, scrollTo moves the minimum needed to show the whole day,
+                // so edge days end flush with the viewport instead of jumping.
+                .onChange(of: columnLayout) { previous, current in
+                    if current.needsSelectionReveal(after: previous) {
+                        proxy.scrollTo(selectedDay)
+                    }
+                }
             }
         }
         // Columns follow the measured width; the ScrollView fills it, so there is no feedback loop.
