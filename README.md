@@ -84,7 +84,9 @@ unsigned bundle, run `./scripts/package-app.sh` in Terminal.
 ## Dashboard and exports
 
 Dashboard shows a 3, 7, or 14 day activity timeline, defaulting to 7 days.
-Days are aligned left to right on one shared vertical local-time scale. Empty
+Days are aligned left to right on one shared vertical local-time scale, and
+the columns widen to fill the window; they scroll sideways only when the window
+is too narrow for readable columns (typically 14 days at small sizes). Empty
 hours before and after all visible activity are compressed, while unusual-hour
 activity expands the shared scale for every day. Blue blocks are validated
 work, red blocks are overtime, dashed outlines identify the current ongoing

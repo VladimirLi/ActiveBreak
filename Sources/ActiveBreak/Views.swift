@@ -212,7 +212,7 @@ struct DashboardView: View {
                         selectedSegment: $selectedSegment
                     )
                 }
-                .padding(20)
+                .padding(DashboardLayout.timelinePadding)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
 
                 Divider()
@@ -255,7 +255,7 @@ struct DashboardView: View {
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
         }
-        .frame(minWidth: 900, minHeight: 720)
+        .frame(minWidth: DashboardLayout.minimumWindowWidth, minHeight: 720)
         .onChange(of: dateRange) {
             selectedDay = DashboardDaySelection.resolve(
                 selectedDay,
@@ -326,13 +326,28 @@ private struct ActivityTimelineView: View {
     let selectedDay: Date?
     let onSelectDay: (Date) -> Void
     @Binding var selectedSegment: DashboardSegment?
+    @State private var timelineWidth: CGFloat = 0
 
     private let headerHeight: CGFloat = 42
     private let timelineHeight: CGFloat = 350
     private let summaryHeight = CGFloat(DashboardLayout.daySummaryHeight)
 
+    private var dayRegionWidth: Double {
+        DashboardLayout.dayRegionWidth(timelineWidth: Double(timelineWidth))
+    }
+
     private var dayWidth: CGFloat {
-        DashboardLayout.dayWidth(for: dashboard.range.range)
+        DashboardLayout.responsiveDayWidth(
+            availableDayRegionWidth: dayRegionWidth,
+            range: dashboard.range.range
+        )
+    }
+
+    private var contentWidth: CGFloat {
+        DashboardLayout.responsiveContentWidth(
+            availableDayRegionWidth: dayRegionWidth,
+            range: dashboard.range.range
+        )
     }
 
     private var tickOffsets: [Int] {
@@ -403,7 +418,7 @@ private struct ActivityTimelineView: View {
                             .id(day.date)
                         }
                     }
-                    .frame(width: DashboardLayout.scrollContentWidth(for: dashboard.range.range))
+                    .frame(width: contentWidth)
                 }
                 // Keep the day shown in the detail panel on screen when it scrolls.
                 .onAppear { proxy.scrollTo(selectedDay) }
@@ -411,6 +426,9 @@ private struct ActivityTimelineView: View {
                 .onChange(of: dashboard.range) { proxy.scrollTo(selectedDay) }
             }
         }
+        // Columns follow the measured width; the ScrollView fills it, so there is no feedback loop.
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { timelineWidth = $0 }
         .overlay {
             Rectangle()
                 .stroke(.separator, lineWidth: 1)

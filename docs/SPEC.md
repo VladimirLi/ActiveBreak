@@ -124,7 +124,11 @@ than hour/minute components. Spring-forward and repeated fall-back hours MUST
 retain exact duration and chronological order. Day headers MUST identify
 non-24-hour days, block details and accessibility text MUST use explicit local
 timestamps, and the shared time axis MUST remain pinned while only day columns
-scroll horizontally. Every block's accessibility text MUST include date,
+scroll horizontally. Day columns MUST share the width beside the pinned axis
+and fixed detail panel, expanding with the window with no trailing gap, and
+MUST scroll only when that width falls below a readable per-range minimum.
+Three- and seven-day ranges MUST fit at the minimum window width. Every
+block's accessibility text MUST include date,
 start, end, duration, work type, and ongoing/completed status.
 
 The pinned axis MUST identify one reference day and derive each displayed local

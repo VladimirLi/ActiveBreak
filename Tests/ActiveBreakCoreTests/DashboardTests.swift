@@ -353,11 +353,75 @@ private func date(
     #expect(DashboardLayout.axisWidth == 86)
     #expect(DashboardLayout.axisRegion == .pinned)
     #expect(DashboardLayout.dayColumnsRegion == .horizontalScroll)
-    #expect(DashboardLayout.dayWidth(for: .threeDays) == 250)
-    #expect(DashboardLayout.dayWidth(for: .sevenDays) == 128)
-    #expect(DashboardLayout.dayWidth(for: .fourteenDays) == 72)
-    #expect(DashboardLayout.scrollContentWidth(for: .fourteenDays) == 14 * 72)
-    #expect(DashboardLayout.scrollContentWidth(for: .fourteenDays) > 760 - DashboardLayout.axisWidth)
+    #expect(DashboardLayout.minimumDayWidth(for: .threeDays) == 160)
+    #expect(DashboardLayout.minimumDayWidth(for: .sevenDays) == 72)
+    #expect(DashboardLayout.minimumDayWidth(for: .fourteenDays) == 72)
+    #expect(DashboardLayout.dayRegionWidth(timelineWidth: 600) == 600 - DashboardLayout.axisWidth)
+}
+
+private func expectResponsive(
+    _ range: DashboardRange,
+    available: Double,
+    dayWidth: Double,
+    contentWidth: Double
+) {
+    let width = DashboardLayout.responsiveDayWidth(availableDayRegionWidth: available, range: range)
+    let content = DashboardLayout.responsiveContentWidth(availableDayRegionWidth: available, range: range)
+    #expect(abs(width - dayWidth) < 1e-9, "\(range) at \(available): day width \(width)")
+    #expect(content == contentWidth, "\(range) at \(available): content \(content)")
+    #expect(abs(width * Double(range.dayCount) - content) < 1e-9)
+}
+
+@Test func narrowScheduleKeepsReadableMinimumAndScrolls() {
+    expectResponsive(.threeDays, available: 300, dayWidth: 160, contentWidth: 480)
+    expectResponsive(.sevenDays, available: 300, dayWidth: 72, contentWidth: 504)
+    expectResponsive(.fourteenDays, available: 300, dayWidth: 72, contentWidth: 1_008)
+    for range in DashboardRange.allCases {
+        #expect(DashboardLayout.responsiveContentWidth(availableDayRegionWidth: 300, range: range) > 300)
+    }
+}
+
+@Test func scheduleAtExactMinimumFitsWithoutScrolling() {
+    expectResponsive(.threeDays, available: 480, dayWidth: 160, contentWidth: 480)
+    expectResponsive(.sevenDays, available: 504, dayWidth: 72, contentWidth: 504)
+    expectResponsive(.fourteenDays, available: 1_008, dayWidth: 72, contentWidth: 1_008)
+}
+
+@Test func wideScheduleFillsViewportExactly() {
+    expectResponsive(.threeDays, available: 1_400, dayWidth: 1_400.0 / 3, contentWidth: 1_400)
+    expectResponsive(.sevenDays, available: 1_400, dayWidth: 200, contentWidth: 1_400)
+    expectResponsive(.fourteenDays, available: 1_400, dayWidth: 100, contentWidth: 1_400)
+    let narrower = DashboardLayout.responsiveDayWidth(availableDayRegionWidth: 700, range: .sevenDays)
+    let wider = DashboardLayout.responsiveDayWidth(availableDayRegionWidth: 701, range: .sevenDays)
+    #expect(narrower == 100)
+    #expect(wider > narrower)
+}
+
+@Test func threeAndSevenDaysFitAtMinimumWindowWidth() {
+    let timeline = DashboardLayout.minimumTimelineWidth
+    #expect(timeline == DashboardLayout.minimumWindowWidth
+        - DashboardLayout.detailPanelWidth
+        - DashboardLayout.dividerWidth
+        - 2 * DashboardLayout.timelinePadding)
+    let available = DashboardLayout.dayRegionWidth(timelineWidth: timeline)
+    #expect(available == 513)
+    expectResponsive(.threeDays, available: available, dayWidth: 171, contentWidth: 513)
+    expectResponsive(.sevenDays, available: available, dayWidth: 513.0 / 7, contentWidth: 513)
+    expectResponsive(.fourteenDays, available: available, dayWidth: 72, contentWidth: 1_008)
+}
+
+@Test func responsiveWidthHandlesMissingOrInvalidMeasurements() {
+    for available in [0, -50, Double.nan, Double.infinity, -Double.infinity] {
+        for range in DashboardRange.allCases {
+            let minimum = DashboardLayout.minimumDayWidth(for: range)
+            #expect(DashboardLayout.responsiveDayWidth(availableDayRegionWidth: available, range: range) == minimum)
+            #expect(DashboardLayout.responsiveContentWidth(availableDayRegionWidth: available, range: range)
+                == minimum * Double(range.dayCount))
+        }
+    }
+    #expect(DashboardLayout.dayRegionWidth(timelineWidth: 50) == 0)
+    #expect(DashboardLayout.dayRegionWidth(timelineWidth: .nan) == 0)
+    #expect(DashboardLayout.dayRegionWidth(timelineWidth: .infinity) == 0)
 }
 
 @Test func springForwardAxisTicksUseActualLocalTime() throws {

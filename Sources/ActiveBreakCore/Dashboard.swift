@@ -337,26 +337,53 @@ public enum DashboardLayout {
     public static let axisWidth: Double = 86
     public static let daySummaryHeight: Double = 40
     public static let detailPanelWidth: Double = 260
+    public static let minimumWindowWidth: Double = 900
+    public static let timelinePadding: Double = 20
+    public static let dividerWidth: Double = 1
+    /// Timeline width (axis plus days) when the dashboard window is at its minimum width.
+    public static let minimumTimelineWidth: Double =
+        minimumWindowWidth - detailPanelWidth - dividerWidth - 2 * timelinePadding
     public static let axisRegion: HorizontalRegion = .pinned
     public static let dayColumnsRegion: HorizontalRegion = .horizontalScroll
 
-    public static func dayWidth(for range: DashboardRange) -> Double {
+    /// Narrowest readable column; below it the day columns scroll horizontally.
+    public static func minimumDayWidth(for range: DashboardRange) -> Double {
         switch range {
         case .threeDays:
-            return 250
-        case .sevenDays:
-            return 128
-        case .fourteenDays:
+            return 160
+        case .sevenDays, .fourteenDays:
             return 72
         }
     }
 
-    public static func daySummaryStyle(for range: DashboardRange) -> DashboardDaySummaryStyle {
-        range == .threeDays ? .labeled : .compact
+    /// Width left for day columns beside the pinned axis; invalid measurements count as zero.
+    public static func dayRegionWidth(timelineWidth: Double) -> Double {
+        guard timelineWidth.isFinite else { return 0 }
+        return max(0, timelineWidth - axisWidth)
     }
 
-    public static func scrollContentWidth(for range: DashboardRange) -> Double {
-        dayWidth(for: range) * Double(range.dayCount)
+    /// Days share the available width, never narrower than the range's minimum.
+    public static func responsiveDayWidth(
+        availableDayRegionWidth available: Double,
+        range: DashboardRange
+    ) -> Double {
+        max(minimumDayWidth(for: range), validWidth(available) / Double(range.dayCount))
+    }
+
+    /// Fills the viewport exactly when the days fit, otherwise exceeds it so the days scroll.
+    public static func responsiveContentWidth(
+        availableDayRegionWidth available: Double,
+        range: DashboardRange
+    ) -> Double {
+        max(validWidth(available), minimumDayWidth(for: range) * Double(range.dayCount))
+    }
+
+    private static func validWidth(_ width: Double) -> Double {
+        width.isFinite ? max(0, width) : 0
+    }
+
+    public static func daySummaryStyle(for range: DashboardRange) -> DashboardDaySummaryStyle {
+        range == .threeDays ? .labeled : .compact
     }
 
     public static func segmentFrame(

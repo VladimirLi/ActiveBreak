@@ -125,3 +125,38 @@ private func declaration(_ header: String, in source: String) throws -> Substrin
     #expect(day.contains(".strokeBorder(Color.accentColor, lineWidth: 2)"))
     #expect(day.contains(".accessibilityAddTraits(isSelected ? [.isSelected] : [])"))
 }
+
+@Test func measuredTimelineWidthDrivesEveryDayColumnAndScrollContent() throws {
+    let source = try viewsSource()
+    #expect(!source.contains("DashboardLayout.dayWidth(for:"))
+    #expect(!source.contains("DashboardLayout.scrollContentWidth(for:"))
+    #expect(!source.contains("NSScreen"))
+
+    let dashboard = try declaration("struct DashboardView: View", in: source)
+    #expect(dashboard.contains(".padding(DashboardLayout.timelinePadding)"))
+    #expect(dashboard.contains(".frame(width: DashboardLayout.detailPanelWidth)"))
+    #expect(dashboard.contains(".frame(minWidth: DashboardLayout.minimumWindowWidth,"))
+
+    let timeline = try declaration("private struct ActivityTimelineView: View", in: source)
+        .split(whereSeparator: \.isWhitespace)
+        .joined(separator: " ")
+    #expect(timeline.contains("@State private var timelineWidth: CGFloat = 0"))
+    #expect(timeline.contains(
+        ".onGeometryChange(for: CGFloat.self) { $0.size.width } action: { timelineWidth = $0 }"
+    ))
+    #expect(timeline.contains(
+        "DashboardLayout.dayRegionWidth(timelineWidth: Double(timelineWidth))"
+    ))
+    #expect(timeline.contains("DashboardLayout.responsiveDayWidth( availableDayRegionWidth: dayRegionWidth,"))
+    #expect(timeline.contains("DashboardLayout.responsiveContentWidth( availableDayRegionWidth: dayRegionWidth,"))
+    #expect(timeline.contains("width: dayWidth,"))
+    #expect(timeline.contains(".frame(width: contentWidth)"))
+    #expect(timeline.contains(".frame(maxWidth: .infinity, alignment: .leading)"))
+
+    // The pinned axis stays fixed and precedes the only horizontally scrolling region.
+    let axis = try #require(timeline.range(of: ".frame(width: DashboardLayout.axisWidth)"))
+    let scroller = try #require(timeline.range(of: "ScrollView(.horizontal)"))
+    let measured = try #require(timeline.range(of: ".onGeometryChange(for: CGFloat.self)"))
+    #expect(axis.lowerBound < scroller.lowerBound)
+    #expect(scroller.lowerBound < measured.lowerBound)
+}
