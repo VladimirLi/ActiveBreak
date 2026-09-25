@@ -418,11 +418,7 @@ private struct ActivityTimelineView: View {
         .popover(item: $selectedSegment, arrowEdge: .trailing) { segment in
             ActivityPopover(segment: segment)
         }
-        // Arrow keys stay available; the selected column is the only selection outline.
-        .focusable()
-        .focusEffectDisabled()
-        .onKeyPress(.leftArrow) { moveSelection(by: -1) }
-        .onKeyPress(.rightArrow) { moveSelection(by: 1) }
+        .background { TimelineKeyboardFocusHost(onMove: moveSelection) }
     }
 
     private func moveSelection(by offset: Int) -> KeyPress.Result {
@@ -436,6 +432,22 @@ private struct ActivityTimelineView: View {
         }
         onSelectDay(day)
         return .handled
+    }
+}
+
+/// Keyboard focus target for arrow-key day navigation. It sits behind the calendar as a sibling,
+/// so disabling its oversized focus ring leaves native focus effects on day and block buttons.
+private struct TimelineKeyboardFocusHost: View {
+    let onMove: (Int) -> KeyPress.Result
+
+    var body: some View {
+        Color.clear
+            .focusable()
+            .focusEffectDisabled()
+            .onKeyPress(.leftArrow) { onMove(-1) }
+            .onKeyPress(.rightArrow) { onMove(1) }
+            .accessibilityLabel("Timeline days")
+            .accessibilityHint("Use the Left and Right arrow keys to change the selected day")
     }
 }
 

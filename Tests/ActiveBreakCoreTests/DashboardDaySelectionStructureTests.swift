@@ -56,8 +56,7 @@ private func declaration(_ header: String, in source: String) throws -> Substrin
     let source = try viewsSource()
     let timeline = try declaration("private struct ActivityTimelineView: View", in: source)
     #expect(timeline.contains("TimelineDayView("))
-    #expect(timeline.contains(".onKeyPress(.leftArrow)"))
-    #expect(timeline.contains(".onKeyPress(.rightArrow)"))
+    #expect(timeline.contains("TimelineKeyboardFocusHost(onMove: moveSelection)"))
     #expect(timeline.contains("DashboardDaySelection.moving("))
     #expect(timeline.contains("DashboardLayout.daySummaryHeight"))
     #expect(timeline.contains("ScrollViewReader"))
@@ -100,14 +99,29 @@ private func declaration(_ header: String, in source: String) throws -> Substrin
         .split(whereSeparator: \.isWhitespace)
         .joined(separator: " ")
 
-    // The selected column is the only selection outline; the whole-calendar focus ring is suppressed.
-    #expect(timeline.contains(
-        ".focusable() .focusEffectDisabled() .onKeyPress(.leftArrow) { moveSelection(by: -1) } "
-            + ".onKeyPress(.rightArrow) { moveSelection(by: 1) }"
+    // focusEffectDisabled() propagates to descendants, so the calendar, days, and blocks must not
+    // sit under it. Only a sibling background host carries focus, the disabled ring, and arrow keys.
+    #expect(!timeline.contains(".focusable()"))
+    #expect(!timeline.contains(".focusEffectDisabled()"))
+    #expect(!timeline.contains(".onKeyPress("))
+    let background = try #require(timeline.range(of: ".background { TimelineKeyboardFocusHost(onMove: moveSelection) }"))
+    let calendar = try #require(timeline.range(of: "TimelineDayView("))
+    #expect(calendar.lowerBound < background.lowerBound)
+
+    let host = try declaration("private struct TimelineKeyboardFocusHost: View", in: source)
+        .split(whereSeparator: \.isWhitespace)
+        .joined(separator: " ")
+    #expect(host.contains(
+        ".focusable() .focusEffectDisabled() .onKeyPress(.leftArrow) { onMove(-1) } "
+            + ".onKeyPress(.rightArrow) { onMove(1) }"
     ))
+    for descendant in ["TimelineDayView", "Button", "ViewBuilder", "content", "ScrollView"] {
+        #expect(!host.contains(descendant))
+    }
     #expect(source.components(separatedBy: ".focusEffectDisabled()").count == 2)
 
     let day = try declaration("private struct TimelineDayView: View", in: source)
     #expect(!day.contains("focusEffectDisabled"))
     #expect(day.contains(".strokeBorder(Color.accentColor, lineWidth: 2)"))
+    #expect(day.contains(".accessibilityAddTraits(isSelected ? [.isSelected] : [])"))
 }
