@@ -103,6 +103,20 @@ excluded until later activity validates it. Ongoing validated work contributes
 to active and overtime totals but MUST NOT contribute to the longest completed
 interval metric.
 
+Every visible day MUST show a compact daily summary below its timeline column
+with exact active time and overtime, including zero-duration days. Daily
+metrics MUST derive from the same midnight- and range-clipped segments the
+timeline draws. The day header, whole column background, and daily summary
+MUST act as one selection target with a pointing-hand cursor, hover and
+selected treatment, and accessibility text naming the date and exact seconds.
+Selecting a day, or a work block in it, MUST open or update a side detail panel
+with the date, active time, overtime, longest completed record contribution
+within that day, and the actual local hour with the most active time. Ongoing
+work MUST be identified in the panel and MUST NOT count as a completed stretch.
+The detail panel MUST initially show today when visible, otherwise the final
+visible day. Changing range or navigating MUST keep the selected day when it
+remains visible and otherwise fall back the same way.
+
 Timeline geometry MUST use exact elapsed time from each local midnight rather
 than hour/minute components. Spring-forward and repeated fall-back hours MUST
 retain exact duration and chronological order. Day headers MUST identify

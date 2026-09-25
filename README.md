@@ -93,6 +93,14 @@ segments only; unresolved provisional time is excluded until later activity
 validates it. Select a block to see its exact start, end, duration, work type,
 and completion status.
 
+Each day column ends with its exact active time and overtime. Click a day's
+header, column, or daily total (the cursor becomes a pointing hand) to show
+that day in the side panel: active time, overtime, the longest completed
+stretch within the day, and its most active hour. Ongoing work is labeled and
+never counts as a completed stretch. The panel starts on today, or the last
+visible day, and follows range changes. Left and right arrow keys move the
+selection when the timeline has keyboard focus.
+
 The summary reports exact visible active time and overtime, the longest visible
 completed interval, and the local hour containing the most active time. Ongoing
 validated work contributes to active and overtime totals but not the completed

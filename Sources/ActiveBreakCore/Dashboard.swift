@@ -191,6 +191,130 @@ public struct DashboardDay: Identifiable, Equatable, Sendable {
     public let duration: TimeInterval
     public let segments: [DashboardSegment]
     public let scale: DashboardTimeScale
+    public let summary: DashboardDaySummary
+
+    init(
+        date: Date,
+        duration: TimeInterval,
+        segments: [DashboardSegment],
+        scale: DashboardTimeScale,
+        calendar: Calendar
+    ) {
+        self.date = date
+        self.duration = duration
+        self.segments = segments
+        self.scale = scale
+        summary = DashboardDaySummary.make(segments: segments, calendar: calendar)
+    }
+
+    public var isStandardLength: Bool { abs(duration - 86_400) <= 1 }
+
+    func contains(_ instant: Date) -> Bool {
+        date <= instant && instant < date.addingTimeInterval(duration)
+    }
+}
+
+/// Per-day metrics derived from the same clipped segments the timeline draws.
+public struct DashboardDaySummary: Equatable, Sendable {
+    public let activeDuration: TimeInterval
+    public let overtimeDuration: TimeInterval
+    public let ongoingDuration: TimeInterval
+    /// Longest completed record contribution within this day; ongoing work never counts.
+    public let longestCompletedStretch: TimeInterval?
+    /// Actual local hour with the most active time; ties choose the earlier hour.
+    public let mostActiveHour: DateInterval?
+
+    public static let empty = DashboardDaySummary(
+        activeDuration: 0,
+        overtimeDuration: 0,
+        ongoingDuration: 0,
+        longestCompletedStretch: nil,
+        mostActiveHour: nil
+    )
+
+    public var hasOngoingWork: Bool { ongoingDuration > 0 }
+
+    public init(
+        activeDuration: TimeInterval,
+        overtimeDuration: TimeInterval,
+        ongoingDuration: TimeInterval,
+        longestCompletedStretch: TimeInterval?,
+        mostActiveHour: DateInterval?
+    ) {
+        self.activeDuration = activeDuration
+        self.overtimeDuration = overtimeDuration
+        self.ongoingDuration = ongoingDuration
+        self.longestCompletedStretch = longestCompletedStretch
+        self.mostActiveHour = mostActiveHour
+    }
+
+    static func make(segments: [DashboardSegment], calendar: Calendar) -> DashboardDaySummary {
+        var completedByRecord: [UUID: TimeInterval] = [:]
+        var durationByHour: [DateInterval: TimeInterval] = [:]
+        for segment in segments {
+            if !segment.isOngoing {
+                completedByRecord[segment.recordID, default: 0] += segment.duration
+            }
+            var cursor = segment.start
+            while cursor < segment.end {
+                let hour = calendar.dateInterval(of: .hour, for: cursor)!
+                let boundary = min(hour.end, segment.end)
+                durationByHour[hour, default: 0] += boundary.timeIntervalSince(cursor)
+                cursor = boundary
+            }
+        }
+        let peak = durationByHour.max { lhs, rhs in
+            lhs.value == rhs.value ? lhs.key.start > rhs.key.start : lhs.value < rhs.value
+        }
+        return DashboardDaySummary(
+            activeDuration: segments.reduce(0) { $0 + $1.duration },
+            overtimeDuration: segments.filter(\.isOvertime).reduce(0) { $0 + $1.duration },
+            ongoingDuration: segments.filter(\.isOngoing).reduce(0) { $0 + $1.duration },
+            longestCompletedStretch: completedByRecord.values.max(),
+            mostActiveHour: peak.flatMap { $0.value > 0 ? $0.key : nil }
+        )
+    }
+}
+
+public enum DashboardDaySelection {
+    /// Keeps a visible selection; otherwise falls back to today, then the final visible day.
+    public static func resolve(
+        _ selection: Date?,
+        in days: [DashboardDay],
+        today: Date
+    ) -> Date? {
+        if let selection, let day = days.first(where: { $0.contains(selection) }) {
+            return day.date
+        }
+        return days.first { $0.contains(today) }?.date ?? days.last?.date
+    }
+
+    public static func moving(
+        _ selection: Date?,
+        by offset: Int,
+        in days: [DashboardDay],
+        today: Date
+    ) -> Date? {
+        guard let current = resolve(selection, in: days, today: today),
+              let index = days.firstIndex(where: { $0.date == current })
+        else { return nil }
+        return days[min(max(0, index + offset), days.count - 1)].date
+    }
+}
+
+public enum DashboardDaySummaryStyle: Equatable, Sendable {
+    case labeled
+    case compact
+}
+
+public struct DashboardDaySummaryLines: Equatable, Sendable {
+    public let active: String
+    public let overtime: String
+
+    public init(active: String, overtime: String) {
+        self.active = active
+        self.overtime = overtime
+    }
 }
 
 public struct DashboardSegmentFrame: Equatable, Sendable {
@@ -211,6 +335,8 @@ public enum DashboardLayout {
     }
 
     public static let axisWidth: Double = 86
+    public static let daySummaryHeight: Double = 40
+    public static let detailPanelWidth: Double = 260
     public static let axisRegion: HorizontalRegion = .pinned
     public static let dayColumnsRegion: HorizontalRegion = .horizontalScroll
 
@@ -223,6 +349,10 @@ public enum DashboardLayout {
         case .fourteenDays:
             return 72
         }
+    }
+
+    public static func daySummaryStyle(for range: DashboardRange) -> DashboardDaySummaryStyle {
+        range == .threeDays ? .labeled : .compact
     }
 
     public static func scrollContentWidth(for range: DashboardRange) -> Double {
@@ -310,6 +440,74 @@ public enum DashboardPresentation {
 
     public static func accessibilityValue(for segment: DashboardSegment) -> String {
         "\(Int(segment.duration.rounded())) seconds, \(segment.isOngoing ? "ongoing" : "completed")"
+    }
+
+    public static func daySummaryLines(
+        for summary: DashboardDaySummary,
+        style: DashboardDaySummaryStyle
+    ) -> DashboardDaySummaryLines {
+        let active = summaryDuration(summary.activeDuration)
+        let overtime = summaryDuration(summary.overtimeDuration)
+        switch style {
+        case .labeled:
+            return DashboardDaySummaryLines(active: "\(active) active", overtime: "\(overtime) overtime")
+        case .compact:
+            return DashboardDaySummaryLines(active: active, overtime: "+\(overtime)")
+        }
+    }
+
+    public static func dayTitle(for day: DashboardDay, calendar: Calendar = .current) -> String {
+        dateFormatter("EEEE, MMM d, yyyy", calendar: calendar).string(from: day.date)
+    }
+
+    public static func dayLengthNote(for day: DashboardDay) -> String? {
+        day.isStandardLength ? nil : "\(Int((day.duration / 3_600).rounded()))-hour day"
+    }
+
+    /// Adds UTC offsets on daylight-saving days so repeated or skipped hours stay unambiguous.
+    public static func mostActiveHourLabel(
+        for day: DashboardDay,
+        calendar: Calendar = .current
+    ) -> String? {
+        guard let hour = day.summary.mostActiveHour else { return nil }
+        let time = dateFormatter("HH:mm", calendar: calendar)
+        guard !day.isStandardLength else {
+            return "\(time.string(from: hour.start))-\(time.string(from: hour.end))"
+        }
+        let offset = dateFormatter("ZZZZZ", calendar: calendar)
+        let startOffset = offset.string(from: hour.start)
+        let endOffset = offset.string(from: hour.end)
+        if startOffset == endOffset {
+            return "\(time.string(from: hour.start))-\(time.string(from: hour.end)) \(startOffset)"
+        }
+        return "\(time.string(from: hour.start)) \(startOffset)-\(time.string(from: hour.end)) \(endOffset)"
+    }
+
+    public static func ongoingNote(for summary: DashboardDaySummary) -> String? {
+        guard summary.hasOngoingWork else { return nil }
+        return "Includes \(summaryDuration(summary.ongoingDuration)) of ongoing work, "
+            + "not counted as a completed stretch."
+    }
+
+    public static func dayAccessibilityLabel(
+        for day: DashboardDay,
+        calendar: Calendar = .current
+    ) -> String {
+        [dayTitle(for: day, calendar: calendar), dayLengthNote(for: day)]
+            .compactMap { $0 }
+            .joined(separator: ", ")
+    }
+
+    public static func dayAccessibilityValue(for day: DashboardDay) -> String {
+        let summary = day.summary
+        var parts = [
+            "Active time \(Int(summary.activeDuration.rounded())) seconds",
+            "overtime \(Int(summary.overtimeDuration.rounded())) seconds",
+        ]
+        if summary.hasOngoingWork {
+            parts.append("includes \(Int(summary.ongoingDuration.rounded())) seconds ongoing")
+        }
+        return parts.joined(separator: ", ")
     }
 
     private static func dateFormatter(
@@ -412,7 +610,8 @@ public struct DashboardProjection: Equatable, Sendable {
                 segments: (segmentsByDay[day.date] ?? []).sorted {
                     $0.start == $1.start ? $0.end < $1.end : $0.start < $1.start
                 },
-                scale: scale
+                scale: scale,
+                calendar: calendar
             )
         }
 

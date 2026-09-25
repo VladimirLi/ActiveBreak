@@ -1,4 +1,5 @@
 import ActiveBreakCore
+import AppKit
 import Foundation
 import SwiftUI
 import UniformTypeIdentifiers
@@ -76,6 +77,7 @@ struct DashboardView: View {
     @State private var selectedRange = DashboardRange.default
     @State private var visibleEndDate = Calendar.current.startOfDay(for: .now)
     @State private var selectedSegment: DashboardSegment?
+    @State private var selectedDay: Date?
     @State private var showDeleteConfirmation = false
 
     private var dateRange: DashboardDateRange {
@@ -93,6 +95,11 @@ struct DashboardView: View {
             range: dateRange,
             calendar: .current
         )
+    }
+
+    /// Always a visible day: the user's choice when still shown, otherwise today or the final day.
+    private var displayedDay: Date? {
+        DashboardDaySelection.resolve(selectedDay, in: dashboard.days, today: .now)
     }
 
     var body: some View {
@@ -187,22 +194,37 @@ struct DashboardView: View {
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack(spacing: 16) {
-                        LegendItem(color: .blue, title: "Active work")
-                        LegendItem(color: .red, title: "Overtime")
-                        LegendItem(color: .secondary, title: "Ongoing", outlined: true)
-                        Label("Compressed empty hours", systemImage: "ellipsis")
-                            .foregroundStyle(.secondary)
-                    }
-                    .font(.caption)
+                HStack(spacing: 0) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack(spacing: 16) {
+                            LegendItem(color: .blue, title: "Active work")
+                            LegendItem(color: .red, title: "Overtime")
+                            LegendItem(color: .secondary, title: "Ongoing", outlined: true)
+                            Label("Compressed empty hours", systemImage: "ellipsis")
+                                .foregroundStyle(.secondary)
+                        }
+                        .font(.caption)
 
-                    ActivityTimelineView(
-                        dashboard: dashboard,
-                        selectedSegment: $selectedSegment
-                    )
+                        ActivityTimelineView(
+                            dashboard: dashboard,
+                            selectedDay: displayedDay,
+                            onSelectDay: { selectedDay = $0 },
+                            selectedSegment: $selectedSegment
+                        )
+                    }
+                    .padding(20)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+
+                    Divider()
+
+                    if let day = dashboard.days.first(where: { $0.date == displayedDay }) {
+                        DayDetailPanel(
+                            day: day,
+                            isToday: Calendar.current.isDateInToday(day.date)
+                        )
+                        .frame(width: DashboardLayout.detailPanelWidth)
+                    }
                 }
-                .padding(20)
             }
 
             Divider()
@@ -234,7 +256,14 @@ struct DashboardView: View {
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
         }
-        .frame(minWidth: 760, minHeight: 650)
+        .frame(minWidth: 900, minHeight: 720)
+        .onChange(of: dateRange) {
+            selectedDay = DashboardDaySelection.resolve(
+                selectedDay,
+                in: dashboard.days,
+                today: .now
+            )
+        }
         .confirmationDialog(
             "Delete all history?",
             isPresented: $showDeleteConfirmation,
@@ -295,9 +324,13 @@ private struct LegendItem: View {
 
 private struct ActivityTimelineView: View {
     let dashboard: DashboardProjection
+    let selectedDay: Date?
+    let onSelectDay: (Date) -> Void
     @Binding var selectedSegment: DashboardSegment?
 
+    private let headerHeight: CGFloat = 42
     private let timelineHeight: CGFloat = 350
+    private let summaryHeight = CGFloat(DashboardLayout.daySummaryHeight)
 
     private var dayWidth: CGFloat {
         DashboardLayout.dayWidth(for: dashboard.range.range)
@@ -334,7 +367,7 @@ private struct ActivityTimelineView: View {
                 .font(.caption2)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.trailing)
-                .frame(maxWidth: .infinity, maxHeight: 42, alignment: .trailing)
+                .frame(maxWidth: .infinity, maxHeight: headerHeight, alignment: .trailing)
                 .padding(.trailing, 6)
                 Divider()
                 TimelineAxis(
@@ -343,46 +376,40 @@ private struct ActivityTimelineView: View {
                     height: timelineHeight
                 )
                 .frame(height: timelineHeight)
+                Divider()
+                Text("Daily")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, maxHeight: summaryHeight, alignment: .trailing)
+                    .padding(.trailing, 6)
             }
             .frame(width: DashboardLayout.axisWidth)
 
-            ScrollView(.horizontal) {
-                VStack(spacing: 0) {
+            ScrollViewReader { proxy in
+                ScrollView(.horizontal) {
                     HStack(spacing: 0) {
                         ForEach(dashboard.days) { day in
-                            VStack(spacing: 1) {
-                                Text(day.date, format: .dateTime.weekday(.abbreviated))
-                                    .font(.caption.weight(.semibold))
-                                HStack(spacing: 3) {
-                                    Text(day.date, format: .dateTime.day())
-                                    if abs(day.duration - 86_400) > 1 {
-                                        Text("\(Int(day.duration / 3_600))h")
-                                            .foregroundStyle(.secondary)
-                                    }
-                                }
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                            }
-                            .frame(width: dayWidth, height: 42)
-                            .overlay(alignment: .leading) { Divider() }
-                        }
-                    }
-
-                    Divider()
-
-                    HStack(spacing: 0) {
-                        ForEach(dashboard.days) { day in
-                            TimelineDayColumn(
+                            TimelineDayView(
                                 day: day,
+                                range: dashboard.range.range,
                                 tickOffsets: tickOffsets,
                                 width: dayWidth,
-                                height: timelineHeight,
+                                headerHeight: headerHeight,
+                                timelineHeight: timelineHeight,
+                                summaryHeight: summaryHeight,
+                                isSelected: day.date == selectedDay,
+                                onSelectDay: onSelectDay,
                                 selectedSegment: $selectedSegment
                             )
+                            .id(day.date)
                         }
                     }
+                    .frame(width: DashboardLayout.scrollContentWidth(for: dashboard.range.range))
                 }
-                .frame(width: DashboardLayout.scrollContentWidth(for: dashboard.range.range))
+                // Keep the day shown in the detail panel on screen when it scrolls.
+                .onAppear { proxy.scrollTo(selectedDay) }
+                .onChange(of: selectedDay) { proxy.scrollTo(selectedDay) }
+                .onChange(of: dashboard.range) { proxy.scrollTo(selectedDay) }
             }
         }
         .overlay {
@@ -392,6 +419,22 @@ private struct ActivityTimelineView: View {
         .popover(item: $selectedSegment, arrowEdge: .trailing) { segment in
             ActivityPopover(segment: segment)
         }
+        .focusable()
+        .onKeyPress(.leftArrow) { moveSelection(by: -1) }
+        .onKeyPress(.rightArrow) { moveSelection(by: 1) }
+    }
+
+    private func moveSelection(by offset: Int) -> KeyPress.Result {
+        guard let day = DashboardDaySelection.moving(
+            selectedDay,
+            by: offset,
+            in: dashboard.days,
+            today: .now
+        ) else {
+            return .ignored
+        }
+        onSelectDay(day)
+        return .handled
     }
 }
 
@@ -428,12 +471,142 @@ private struct TimelineAxis: View {
     }
 }
 
-private struct TimelineDayColumn: View {
+/// One selection target per day: header, whole column background, and daily summary.
+/// Work blocks sit above it and select the day before opening their popover.
+private struct TimelineDayView: View {
+    let day: DashboardDay
+    let range: DashboardRange
+    let tickOffsets: [Int]
+    let width: CGFloat
+    let headerHeight: CGFloat
+    let timelineHeight: CGFloat
+    let summaryHeight: CGFloat
+    let isSelected: Bool
+    let onSelectDay: (Date) -> Void
+    @Binding var selectedSegment: DashboardSegment?
+    @State private var isHovered = false
+
+    private var highlight: Color {
+        if isSelected {
+            return Color.accentColor.opacity(0.12)
+        }
+        return isHovered ? Color.accentColor.opacity(0.06) : Color.clear
+    }
+
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            Button {
+                onSelectDay(day.date)
+            } label: {
+                VStack(spacing: 0) {
+                    DayHeaderView(day: day, isSelected: isSelected)
+                        .frame(width: width, height: headerHeight)
+                    Divider()
+                    TimelineDayBackground(
+                        day: day,
+                        tickOffsets: tickOffsets,
+                        width: width,
+                        height: timelineHeight
+                    )
+                    Divider()
+                    DailySummaryView(summary: day.summary, range: range)
+                        .frame(width: width, height: summaryHeight)
+                }
+                .background(highlight)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .pointingHandCursor()
+            .onHover { isHovered = $0 }
+            .help("Show details for this day")
+            .accessibilityLabel(
+                DashboardPresentation.dayAccessibilityLabel(for: day, calendar: .current)
+            )
+            .accessibilityValue(DashboardPresentation.dayAccessibilityValue(for: day))
+            .accessibilityHint("Shows this day's details")
+            .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+
+            ForEach(day.segments) { segment in
+                let frame = DashboardLayout.segmentFrame(
+                    segment,
+                    scale: day.scale,
+                    height: timelineHeight
+                )
+                Button {
+                    onSelectDay(day.date)
+                    selectedSegment = segment
+                } label: {
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(segment.isOvertime ? Color.red : Color.blue)
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 3)
+                                .stroke(
+                                    Color.primary.opacity(segment.isOngoing ? 0.7 : 0.18),
+                                    style: StrokeStyle(
+                                        lineWidth: segment.isOngoing ? 1.5 : 1,
+                                        dash: segment.isOngoing ? [3, 2] : []
+                                    )
+                                )
+                        }
+                }
+                .buttonStyle(.plain)
+                .pointingHandCursor()
+                .frame(
+                    width: max(18, width - 20),
+                    height: max(5, frame.height)
+                )
+                .position(
+                    x: width / 2,
+                    y: headerHeight + 1 + frame.y + frame.height / 2
+                )
+                .help(segment.isOngoing ? "\(segment.typeLabel), ongoing" : segment.typeLabel)
+                .accessibilityLabel(
+                    DashboardPresentation.accessibilityLabel(for: segment, calendar: .current)
+                )
+                .accessibilityValue(
+                    DashboardPresentation.accessibilityValue(for: segment)
+                )
+            }
+        }
+        .frame(width: width, height: headerHeight + timelineHeight + summaryHeight + 2)
+        .overlay {
+            if isSelected {
+                Rectangle()
+                    .strokeBorder(Color.accentColor, lineWidth: 2)
+                    .allowsHitTesting(false)
+            }
+        }
+        .overlay(alignment: .leading) { Divider() }
+    }
+}
+
+private struct DayHeaderView: View {
+    let day: DashboardDay
+    let isSelected: Bool
+
+    var body: some View {
+        VStack(spacing: 1) {
+            Text(day.date, format: .dateTime.weekday(.abbreviated))
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(isSelected ? Color.accentColor : Color.primary)
+            HStack(spacing: 3) {
+                Text(day.date, format: .dateTime.day())
+                if !day.isStandardLength {
+                    Text("\(Int(day.duration / 3_600))h")
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+        }
+    }
+}
+
+private struct TimelineDayBackground: View {
     let day: DashboardDay
     let tickOffsets: [Int]
     let width: CGFloat
     let height: CGFloat
-    @Binding var selectedSegment: DashboardSegment?
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -468,50 +641,146 @@ private struct TimelineDayColumn: View {
                         y: (top + bottom) * height / 2
                     )
             }
-
-            ForEach(day.segments) { segment in
-                let frame = DashboardLayout.segmentFrame(
-                    segment,
-                    scale: day.scale,
-                    height: height
-                )
-                Button {
-                    selectedSegment = segment
-                } label: {
-                    RoundedRectangle(cornerRadius: 3)
-                        .fill(segment.isOvertime ? Color.red : Color.blue)
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 3)
-                                .stroke(
-                                    Color.primary.opacity(segment.isOngoing ? 0.7 : 0.18),
-                                    style: StrokeStyle(
-                                        lineWidth: segment.isOngoing ? 1.5 : 1,
-                                        dash: segment.isOngoing ? [3, 2] : []
-                                    )
-                                )
-                        }
-                }
-                .buttonStyle(.plain)
-                .frame(
-                    width: max(18, width - 20),
-                    height: max(5, frame.height)
-                )
-                .position(
-                    x: width / 2,
-                    y: frame.y + frame.height / 2
-                )
-                .help(segment.isOngoing ? "\(segment.typeLabel), ongoing" : segment.typeLabel)
-                .accessibilityLabel(
-                    DashboardPresentation.accessibilityLabel(for: segment, calendar: .current)
-                )
-                .accessibilityValue(
-                    DashboardPresentation.accessibilityValue(for: segment)
-                )
-            }
         }
         .frame(width: width, height: height)
         .clipped()
-        .overlay(alignment: .leading) { Divider() }
+    }
+}
+
+private struct DailySummaryView: View {
+    let summary: DashboardDaySummary
+    let range: DashboardRange
+
+    var body: some View {
+        let lines = DashboardPresentation.daySummaryLines(
+            for: summary,
+            style: DashboardLayout.daySummaryStyle(for: range)
+        )
+        VStack(spacing: 2) {
+            HStack(spacing: 3) {
+                Text(lines.active)
+                    .font(.caption.weight(.semibold))
+                if summary.hasOngoingWork {
+                    Image(systemName: "circle.dashed")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Text(lines.overtime)
+                .font(.caption2)
+                .foregroundStyle(summary.overtimeDuration > 0 ? Color.red : Color.secondary)
+        }
+        .monospacedDigit()
+        .lineLimit(1)
+        .minimumScaleFactor(0.7)
+        .padding(.horizontal, 4)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.secondary.opacity(0.06))
+    }
+}
+
+private struct DayDetailPanel: View {
+    let day: DashboardDay
+    let isToday: Bool
+
+    private var summary: DashboardDaySummary { day.summary }
+
+    private var title: String {
+        DashboardPresentation.dayTitle(for: day, calendar: .current)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
+                    Text("Day details")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    if isToday {
+                        Text("Today")
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(Color.accentColor)
+                    }
+                }
+                Text(title)
+                    .font(.headline)
+                if let note = DashboardPresentation.dayLengthNote(for: day) {
+                    Text(note)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isHeader)
+            .padding(.bottom, 12)
+
+            DetailRow(
+                title: "Active time",
+                value: DashboardPresentation.summaryDuration(summary.activeDuration)
+            )
+            Divider()
+            DetailRow(
+                title: "Overtime",
+                value: DashboardPresentation.summaryDuration(summary.overtimeDuration),
+                tint: summary.overtimeDuration > 0 ? .red : nil
+            )
+            Divider()
+            DetailRow(
+                title: "Longest completed",
+                value: summary.longestCompletedStretch
+                    .map(DashboardPresentation.summaryDuration) ?? "-"
+            )
+            Divider()
+            DetailRow(
+                title: "Most active",
+                value: DashboardPresentation.mostActiveHourLabel(
+                    for: day,
+                    calendar: .current
+                ) ?? "-"
+            )
+
+            if let note = DashboardPresentation.ongoingNote(for: summary) {
+                Label(note, systemImage: "circle.dashed")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, 12)
+            } else if summary.activeDuration == 0 {
+                Text("No validated work on this day.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.top, 12)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(16)
+        .frame(maxHeight: .infinity, alignment: .top)
+        .background(Color.secondary.opacity(0.05))
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Details for \(title)")
+    }
+}
+
+private struct DetailRow: View {
+    let title: String
+    let value: String
+    var tint: Color?
+
+    var body: some View {
+        HStack {
+            Text(title)
+                .foregroundStyle(.secondary)
+            Spacer(minLength: 8)
+            Text(value)
+                .fontWeight(.semibold)
+                .monospacedDigit()
+                .foregroundStyle(tint ?? Color.primary)
+                .multilineTextAlignment(.trailing)
+        }
+        .font(.callout)
+        .padding(.vertical, 8)
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -558,5 +827,27 @@ private struct ActivityPopover: View {
         }
         .font(.callout)
         .padding(14)
+    }
+}
+
+private struct PointingHandCursor: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(macOS 15.0, *) {
+            content.pointerStyle(.link)
+        } else {
+            content.onHover { inside in
+                if inside {
+                    NSCursor.pointingHand.push()
+                } else {
+                    NSCursor.pop()
+                }
+            }
+        }
+    }
+}
+
+private extension View {
+    func pointingHandCursor() -> some View {
+        modifier(PointingHandCursor())
     }
 }
