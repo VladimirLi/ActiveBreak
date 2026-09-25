@@ -366,6 +366,31 @@ public struct DashboardColumnLayout: Equatable, Sendable {
     }
 }
 
+/// Decides when a resize must scroll the selected day back into view. Movement is measured
+/// from the layout at the last reveal, so a continuous drag made of sub-point steps still
+/// reveals once the total change reaches a point, while stationary jitter never scrolls.
+public struct DashboardSelectionRevealTracker: Equatable, Sendable {
+    public private(set) var baseline: DashboardColumnLayout?
+
+    public init() {}
+
+    /// Records a layout at which the selection was just scrolled into view.
+    public mutating func markRevealed(_ layout: DashboardColumnLayout) {
+        baseline = layout
+    }
+
+    public mutating func shouldReveal(for layout: DashboardColumnLayout) -> Bool {
+        guard let baseline, !layout.needsSelectionReveal(after: baseline) else {
+            self.baseline = layout
+            return layout.scrolls
+        }
+        if !layout.scrolls {
+            self.baseline = layout
+        }
+        return false
+    }
+}
+
 public enum DashboardLayout {
     public enum HorizontalRegion: Equatable, Sendable {
         case pinned

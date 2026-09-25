@@ -585,3 +585,106 @@ private func projectedSegment(
     #expect(!layout(512.6).needsSelectionReveal(after: layout(513)))
     #expect(!layout(513).needsSelectionReveal(after: layout(513)))
 }
+
+private func fourteenDayLayout(_ width: Double, _ range: DashboardRange = .fourteenDays) -> DashboardColumnLayout {
+    DashboardColumnLayout.make(availableDayRegionWidth: width, range: range)
+}
+
+@Test func revealTrackerCatchesCumulativeSubPointShrinkage() {
+    var tracker = DashboardSelectionRevealTracker()
+    tracker.markRevealed(fourteenDayLayout(1_007.6))
+
+    // Consecutive samples alone never cross the one-point threshold.
+    #expect(!fourteenDayLayout(1_007.0).needsSelectionReveal(after: fourteenDayLayout(1_007.6)))
+    #expect(!fourteenDayLayout(1_006.4).needsSelectionReveal(after: fourteenDayLayout(1_007.0)))
+    do {
+        let revealed = tracker.shouldReveal(for: fourteenDayLayout(1_007.0))
+        #expect(!revealed)
+    }
+    do {
+        let revealed = tracker.shouldReveal(for: fourteenDayLayout(1_006.4))
+        #expect(revealed)
+    }
+    #expect(tracker.baseline == fourteenDayLayout(1_006.4))
+
+    // A long continuous drag in 0.6pt steps never drifts a full point past the last reveal.
+    var lastReveal = 1_006.4
+    var reveals = 0
+    var width = 1_006.4
+    while width > 600 {
+        width -= 0.6
+        if tracker.shouldReveal(for: fourteenDayLayout(width)) {
+            lastReveal = width
+            reveals += 1
+        }
+        #expect(abs(lastReveal - width) < 1)
+    }
+    #expect(reveals >= 300)
+    #expect(reveals <= 400)
+}
+
+@Test func revealTrackerIgnoresJitterAndFittingLayouts() {
+    var tracker = DashboardSelectionRevealTracker()
+    tracker.markRevealed(fourteenDayLayout(513))
+    for width in [513.4, 512.7, 513.2, 512.4, 513.6, 513.0] {
+        do {
+            let revealed = tracker.shouldReveal(for: fourteenDayLayout(width))
+            #expect(!revealed)
+        }
+    }
+
+    var fitting = DashboardSelectionRevealTracker()
+    fitting.markRevealed(fourteenDayLayout(513, .threeDays))
+    for width in [900.0, 700, 600, 513, 1_400] {
+        do {
+            let revealed = fitting.shouldReveal(for: fourteenDayLayout(width, .threeDays))
+            #expect(!revealed)
+        }
+        do {
+            let revealed = fitting.shouldReveal(for: fourteenDayLayout(width, .sevenDays))
+            #expect(!revealed)
+        }
+    }
+}
+
+@Test func revealTrackerHandlesTransitionsAndExplicitReveals() {
+    var tracker = DashboardSelectionRevealTracker()
+    // First measurement after the zero-width initial pass.
+    do {
+        let revealed = tracker.shouldReveal(for: fourteenDayLayout(0))
+        #expect(revealed)
+    }
+    do {
+        let revealed = tracker.shouldReveal(for: fourteenDayLayout(513))
+        #expect(revealed)
+    }
+    // Narrow to wide fits, so nothing scrolls; wide to narrow reveals again.
+    do {
+        let revealed = tracker.shouldReveal(for: fourteenDayLayout(1_400))
+        #expect(!revealed)
+    }
+    do {
+        let revealed = tracker.shouldReveal(for: fourteenDayLayout(1_007.8))
+        #expect(revealed)
+    }
+    // Same-width range change that starts scrolling.
+    tracker.markRevealed(fourteenDayLayout(513, .sevenDays))
+    do {
+        let revealed = tracker.shouldReveal(for: fourteenDayLayout(513))
+        #expect(revealed)
+    }
+    // A selection change reveals and resets the reference, so later jitter stays quiet.
+    tracker.markRevealed(fourteenDayLayout(600))
+    do {
+        let revealed = tracker.shouldReveal(for: fourteenDayLayout(600.5))
+        #expect(!revealed)
+    }
+    do {
+        let revealed = tracker.shouldReveal(for: fourteenDayLayout(599.3))
+        #expect(!revealed)
+    }
+    do {
+        let revealed = tracker.shouldReveal(for: fourteenDayLayout(598.9))
+        #expect(revealed)
+    }
+}

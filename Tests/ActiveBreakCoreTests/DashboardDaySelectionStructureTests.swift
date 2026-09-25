@@ -151,10 +151,23 @@ private func declaration(_ header: String, in source: String) throws -> Substrin
     #expect(timeline.contains("CGFloat(columnLayout.dayWidth)"))
     #expect(timeline.contains("CGFloat(columnLayout.contentWidth)"))
     // Width changes that make the days scroll keep the selected day in view.
+    // Resizes compare against the last reveal, not only the previous sample, so cumulative
+    // sub-point shrinkage cannot clip the selected day; explicit reveals reset that reference.
+    #expect(timeline.contains("@State private var revealTracker = DashboardSelectionRevealTracker()"))
     #expect(timeline.contains(
-        ".onChange(of: columnLayout) { previous, current in "
-            + "if current.needsSelectionReveal(after: previous) { proxy.scrollTo(selectedDay) } }"
+        ".onChange(of: columnLayout) { if revealTracker.shouldReveal(for: columnLayout) { "
+            + "proxy.scrollTo(selectedDay) } }"
     ))
+    #expect(timeline.contains(".onAppear { revealSelection(proxy) }"))
+    #expect(timeline.contains(".onChange(of: selectedDay) { revealSelection(proxy) }"))
+    #expect(timeline.contains(".onChange(of: dashboard.range) { revealSelection(proxy) }"))
+    #expect(timeline.contains(
+        "private func revealSelection(_ proxy: ScrollViewProxy) { "
+            + "revealTracker.markRevealed(columnLayout) proxy.scrollTo(selectedDay) }"
+    ))
+    #expect(!timeline.contains("needsSelectionReveal(after: previous)"))
+    #expect(!timeline.contains("anchor:"))
+    #expect(!timeline.contains("withAnimation"))
     #expect(timeline.contains("width: dayWidth,"))
     #expect(timeline.contains(".frame(width: contentWidth)"))
     #expect(timeline.contains(".frame(maxWidth: .infinity, alignment: .leading)"))

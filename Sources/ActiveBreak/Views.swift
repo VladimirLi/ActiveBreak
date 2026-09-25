@@ -327,6 +327,7 @@ private struct ActivityTimelineView: View {
     let onSelectDay: (Date) -> Void
     @Binding var selectedSegment: DashboardSegment?
     @State private var timelineWidth: CGFloat = 0
+    @State private var revealTracker = DashboardSelectionRevealTracker()
 
     private let headerHeight: CGFloat = 42
     private let timelineHeight: CGFloat = 350
@@ -417,13 +418,13 @@ private struct ActivityTimelineView: View {
                     .frame(width: contentWidth)
                 }
                 // Keep the day shown in the detail panel on screen when it scrolls.
-                .onAppear { proxy.scrollTo(selectedDay) }
-                .onChange(of: selectedDay) { proxy.scrollTo(selectedDay) }
-                .onChange(of: dashboard.range) { proxy.scrollTo(selectedDay) }
+                .onAppear { revealSelection(proxy) }
+                .onChange(of: selectedDay) { revealSelection(proxy) }
+                .onChange(of: dashboard.range) { revealSelection(proxy) }
                 // With no anchor, scrollTo moves the minimum needed to show the whole day,
                 // so edge days end flush with the viewport instead of jumping.
-                .onChange(of: columnLayout) { previous, current in
-                    if current.needsSelectionReveal(after: previous) {
+                .onChange(of: columnLayout) {
+                    if revealTracker.shouldReveal(for: columnLayout) {
                         proxy.scrollTo(selectedDay)
                     }
                 }
@@ -440,6 +441,11 @@ private struct ActivityTimelineView: View {
             ActivityPopover(segment: segment)
         }
         .background { TimelineKeyboardFocusHost(onMove: moveSelection) }
+    }
+
+    private func revealSelection(_ proxy: ScrollViewProxy) {
+        revealTracker.markRevealed(columnLayout)
+        proxy.scrollTo(selectedDay)
     }
 
     private func moveSelection(by offset: Int) -> KeyPress.Result {
