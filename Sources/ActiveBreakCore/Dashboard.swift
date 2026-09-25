@@ -456,6 +456,11 @@ public enum DashboardPresentation {
         }
     }
 
+    /// A passive cue for all-empty ranges; the timeline and day selection stay available.
+    public static func emptyRangeNote(for dashboard: DashboardProjection) -> String? {
+        dashboard.hasActivity ? nil : "No activity in this range. Select any day for its details."
+    }
+
     public static func dayTitle(for day: DashboardDay, calendar: Calendar = .current) -> String {
         dateFormatter("EEEE, MMM d, yyyy", calendar: calendar).string(from: day.date)
     }
@@ -531,6 +536,8 @@ public struct DashboardProjection: Equatable, Sendable {
     public let overtimeDuration: TimeInterval
     public let longestStretch: TimeInterval?
     public let mostActiveHour: Int?
+
+    public var hasActivity: Bool { days.contains { !$0.segments.isEmpty } }
 
     public static func make(
         records: [HistoryRecord],

@@ -35,6 +35,13 @@ private func declaration(_ header: String, in source: String) throws -> Substrin
     #expect(dashboard.contains("onSelectDay: { selectedDay = $0 }"))
     #expect(dashboard.contains("selectedDay: displayedDay"))
     #expect(dashboard.contains("MetricView("))
+    // An all-empty range keeps the interactive timeline and panel; the cue never replaces them.
+    #expect(!dashboard.contains("ContentUnavailableView("))
+    #expect(!dashboard.contains("allSatisfy({ $0.segments.isEmpty })"))
+    let cue = try #require(dashboard.range(of: "DashboardPresentation.emptyRangeNote("))
+    let timeline = try #require(dashboard.range(of: "ActivityTimelineView("))
+    #expect(cue.lowerBound < timeline.lowerBound)
+    #expect(dashboard[cue.lowerBound..<timeline.lowerBound].contains(".allowsHitTesting(false)"))
 
     let panel = try declaration("private struct DayDetailPanel: View", in: source)
     #expect(panel.contains("DashboardPresentation.dayTitle("))

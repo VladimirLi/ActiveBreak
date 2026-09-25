@@ -186,44 +186,43 @@ struct DashboardView: View {
 
             Divider()
 
-            if dashboard.days.allSatisfy({ $0.segments.isEmpty }) {
-                ContentUnavailableView(
-                    "No Activity",
-                    systemImage: "clock",
-                    description: Text("Completed work in this date range will appear here.")
-                )
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                HStack(spacing: 0) {
-                    VStack(alignment: .leading, spacing: 10) {
-                        HStack(spacing: 16) {
-                            LegendItem(color: .blue, title: "Active work")
-                            LegendItem(color: .red, title: "Overtime")
-                            LegendItem(color: .secondary, title: "Ongoing", outlined: true)
-                            Label("Compressed empty hours", systemImage: "ellipsis")
-                                .foregroundStyle(.secondary)
-                        }
-                        .font(.caption)
-
-                        ActivityTimelineView(
-                            dashboard: dashboard,
-                            selectedDay: displayedDay,
-                            onSelectDay: { selectedDay = $0 },
-                            selectedSegment: $selectedSegment
-                        )
+            HStack(spacing: 0) {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 16) {
+                        LegendItem(color: .blue, title: "Active work")
+                        LegendItem(color: .red, title: "Overtime")
+                        LegendItem(color: .secondary, title: "Ongoing", outlined: true)
+                        Label("Compressed empty hours", systemImage: "ellipsis")
+                            .foregroundStyle(.secondary)
                     }
-                    .padding(20)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .font(.caption)
 
-                    Divider()
-
-                    if let day = dashboard.days.first(where: { $0.date == displayedDay }) {
-                        DayDetailPanel(
-                            day: day,
-                            isToday: Calendar.current.isDateInToday(day.date)
-                        )
-                        .frame(width: DashboardLayout.detailPanelWidth)
+                    if let note = DashboardPresentation.emptyRangeNote(for: dashboard) {
+                        Label(note, systemImage: "clock")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .accessibilityAddTraits(.isStaticText)
+                            .allowsHitTesting(false)
                     }
+
+                    ActivityTimelineView(
+                        dashboard: dashboard,
+                        selectedDay: displayedDay,
+                        onSelectDay: { selectedDay = $0 },
+                        selectedSegment: $selectedSegment
+                    )
+                }
+                .padding(20)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+
+                Divider()
+
+                if let day = dashboard.days.first(where: { $0.date == displayedDay }) {
+                    DayDetailPanel(
+                        day: day,
+                        isToday: Calendar.current.isDateInToday(day.date)
+                    )
+                    .frame(width: DashboardLayout.detailPanelWidth)
                 }
             }
 

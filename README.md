@@ -98,7 +98,8 @@ header, column, or daily total (the cursor becomes a pointing hand) to show
 that day in the side panel: active time, overtime, the longest completed
 stretch within the day, and its most active hour. Ongoing work is labeled and
 never counts as a completed stretch. The panel starts on today, or the last
-visible day, and follows range changes. Left and right arrow keys move the
+visible day, and follows range changes. Ranges with no activity keep the
+full timeline and panel with zero totals and a short "No activity" note. Left and right arrow keys move the
 selection when the timeline has keyboard focus.
 
 The summary reports exact visible active time and overtime, the longest visible

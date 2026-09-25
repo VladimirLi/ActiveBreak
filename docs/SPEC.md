@@ -115,7 +115,9 @@ within that day, and the actual local hour with the most active time. Ongoing
 work MUST be identified in the panel and MUST NOT count as a completed stretch.
 The detail panel MUST initially show today when visible, otherwise the final
 visible day. Changing range or navigating MUST keep the selected day when it
-remains visible and otherwise fall back the same way.
+remains visible and otherwise fall back the same way. A range with no activity
+MUST still render every day column, zero daily summary, and the detail panel;
+its empty-state cue MUST be passive and MUST NOT replace or block day selection.
 
 Timeline geometry MUST use exact elapsed time from each local midnight rather
 than hour/minute components. Spring-forward and repeated fall-back hours MUST

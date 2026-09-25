@@ -244,6 +244,34 @@ private let threeDays = DashboardDateRange(start: date(22), end: date(25), range
         == "Active time 0 seconds, overtime 0 seconds")
 }
 
+@Test func allEmptyRangeStillProjectsSelectableZeroDays() throws {
+    let today = date(24, hour: 12)
+    let week = DashboardDateRange(range: .sevenDays, endingAt: today, today: today, calendar: utc)
+    let dashboard = DashboardProjection.make(records: [], range: week, calendar: utc)
+
+    #expect(!dashboard.hasActivity)
+    #expect(dashboard.days.count == 7)
+    #expect(dashboard.days.allSatisfy { $0.summary == .empty })
+    #expect(DashboardPresentation.axisReferenceDay(in: dashboard.days) != nil)
+    #expect(DashboardPresentation.emptyRangeNote(for: dashboard)
+        == "No activity in this range. Select any day for its details.")
+    #expect(DashboardDaySelection.resolve(nil, in: dashboard.days, today: today) == date(24))
+    for day in dashboard.days {
+        #expect(DashboardDaySelection.resolve(day.date, in: dashboard.days, today: today) == day.date)
+        #expect(DashboardPresentation.daySummaryLines(for: day.summary, style: .compact)
+            == DashboardDaySummaryLines(active: "0s", overtime: "+0s"))
+        #expect(DashboardPresentation.mostActiveHourLabel(for: day, calendar: utc) == nil)
+    }
+
+    let active = DashboardProjection.make(
+        records: [record([TimeSegment(start: date(20, hour: 9), end: date(20, hour: 9, second: 1))])],
+        range: week,
+        calendar: utc
+    )
+    #expect(active.hasActivity)
+    #expect(DashboardPresentation.emptyRangeNote(for: active) == nil)
+}
+
 @Test func daySummaryLinesKeepExactSecondsForEveryRange() {
     let summary = DashboardDaySummary(
         activeDuration: 5 * 3_600 + 42 * 60 + 12,
