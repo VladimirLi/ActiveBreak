@@ -3,7 +3,6 @@ name: Release
 on:
   push:
     tags: ['v*']
-    branches: ['ci/unsigned-release-pipeline']
   workflow_dispatch:
     inputs:
       version:
