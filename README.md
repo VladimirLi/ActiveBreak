@@ -46,13 +46,75 @@ new activity. History is retained locally until **Delete All History** is
 confirmed. Each interval has one stable identifier, and applying the same
 closure more than once cannot create a second history record.
 
-## Requirements
+## Install
+
+Requires macOS 14 (Sonoma) or newer on Apple Silicon or Intel.
+
+1. Download the `.dmg` (named `<app name>-<version>.dmg`) from the
+   [latest release](https://github.com/VladimirLi/ActiveBreak/releases/latest).
+   A `.zip` of the same app is attached too.
+2. Open the DMG and drag the app onto the **Applications** shortcut. Install it
+   in `/Applications` before the first launch; running it from the DMG or
+   Downloads can make launch at login fail.
+3. Open it from Applications. The first launch is blocked by macOS because the
+   app is not notarized (see below). Use the steps for your macOS version.
+
+The app lives in the menu bar only and has no Dock icon.
+
+The display name (app bundle, DMG and release file names) is set in one place,
+`APP_NAME` in `scripts/release-config.sh`; the install steps above only spell it
+out in the `APP_NAME=` line of the Terminal alternative. The SwiftPM product and
+target names, the bundle identifier, the log subsystem and the Application
+Support folder intentionally keep the name `ActiveBreak` and do not change with
+the display name.
+
+### First launch on macOS 15 Sequoia and macOS 26 Tahoe
+
+Control-click > Open no longer bypasses the warning on these versions.
+
+1. Open the app once and dismiss the warning ("Done" or "OK"; do not move it to
+   the Trash).
+2. Open **System Settings > Privacy & Security** and scroll to **Security**.
+3. Click **Open Anyway** next to the message about the app and authenticate with
+   your password or Touch ID.
+4. Click **Open** when the warning appears again.
+
+The Open Anyway button appears only after a blocked launch attempt, and only
+for a limited time. If it is missing, open the app again first.
+
+### First launch on macOS 14 Sonoma
+
+Control-click (or right-click) the app in Applications, choose **Open**, then
+click **Open** in the dialog. The Open Anyway steps above also work.
+
+### Terminal alternative (any version)
+
+```sh
+APP_NAME=ActiveBreak
+xattr -dr com.apple.quarantine "/Applications/$APP_NAME.app"
+```
+
+This removes the download quarantine flag from the app so macOS stops asking.
+Do it only for a download you trust. You can compare the download against the
+SHA-256 checksums in the release notes with `shasum -a 256 <file>`.
+
+### Why the warning appears
+
+ActiveBreak is free and open source, and releases are only ad-hoc signed, not
+signed with an Apple Developer ID or notarized. Notarization requires a paid
+Apple Developer Program membership, which the project does not have yet. The
+warning means Apple has not scanned the build; it does not mean the app is
+harmful. The full source is here, and you can build it yourself below.
+
+## Build from source
+
+### Requirements
 
 - macOS 14 or newer
 - Swift 6.3 or newer
 - Command Line Tools or Xcode
 
-## Build and test
+### Build and test
 
 With Command Line Tools:
 
@@ -79,7 +141,10 @@ sufficient.
 
 With Xcode, open `Package.swift`, select the `ActiveBreak` executable scheme,
 and Run. Use Product > Test to run the package tests. To create the standalone
-unsigned bundle, run `./scripts/package-app.sh` in Terminal.
+ad-hoc signed bundle, run `./scripts/package-app.sh` in Terminal. To also
+produce the `.dmg`, `.zip` and checksums in `dist/`, run
+`VERSION=1.0.0 ./scripts/package-release.sh` (`VERSION` defaults to
+`0.0.0-dev`; add `ARCHS="arm64 x86_64"` for a universal binary).
 
 ## Dashboard and exports
 
@@ -195,14 +260,18 @@ paths. Keep the backup until the repaired history has been reviewed.
   `SMAppService` integration
 - `ActiveBreakRepair`: preview/apply history repair command
 - `ActiveBreakSmoke`: isolated non-GUI persistence and lifecycle harness
-- `scripts/package-app.sh`: release build and unsigned `.app` assembly
+- `scripts/package-app.sh`: release build and ad-hoc signed `.app` assembly
+- `scripts/package-release.sh`: `.dmg`, `.zip` and checksums in `dist/`
+- `scripts/release-config.sh`: app name, bundle ID, artifact prefix, signing
+  identity and version defaults used by the scripts above
 
 The normative behavior is in [`docs/SPEC.md`](docs/SPEC.md).
 
 ## Limitations
 
-- The packaged app uses only a local ad-hoc signature and is not Developer ID
-  signed or notarized.
+- The packaged app uses only an ad-hoc signature and is not Developer ID
+  signed or notarized, so macOS asks for confirmation on first launch (see
+  [Install](#install)).
 - Launch at login can fail for an unsigned or translocated bundle; the Settings
   window reports the macOS error without changing the timer.
 - macOS controls whether notification banners and menu-bar text colors are
