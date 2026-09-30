@@ -23,10 +23,11 @@ if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?
 fi
 # CFBundleShortVersionString allows digits and periods only, so drop any suffix.
 BUNDLE_SHORT_VERSION=${VERSION%%-*}
-# CFBundleVersion: a UTC build timestamp (YYYYMMDDHHMMSS), so every build gets a
-# unique, increasing number regardless of git history or tag. Override with a
-# numeric BUILD_NUMBER. Exported so child scripts reuse the same value.
-BUILD_NUMBER=${BUILD_NUMBER:-$(date -u +%Y%m%d%H%M%S)}
+# CFBundleVersion: microseconds since the Unix epoch, so every build gets a
+# unique, increasing number regardless of git history or tag, even for builds
+# started within the same second. Override with a numeric BUILD_NUMBER. Exported
+# so child scripts reuse the same value.
+BUILD_NUMBER=${BUILD_NUMBER:-$(perl -MTime::HiRes=gettimeofday -e '($s, $u) = gettimeofday; printf "%d%06d", $s, $u')}
 if ! printf '%s' "$BUILD_NUMBER" | grep -Eq '^[0-9]+$'; then
     printf 'Invalid BUILD_NUMBER "%s"; expected digits only\n' "$BUILD_NUMBER" >&2
     exit 1
