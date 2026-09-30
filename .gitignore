@@ -4,3 +4,4 @@
 .hermes/
 *.xcodeproj/
 xcuserdata/
+dist/
