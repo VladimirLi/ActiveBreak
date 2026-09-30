@@ -2,24 +2,40 @@
 set -eu
 
 ROOT=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
+. "$ROOT/scripts/release-config.sh"
 BUILD_DIR="$ROOT/.build"
 MODULE_CACHE="$BUILD_DIR/module-cache"
-APP="$BUILD_DIR/ActiveBreak.app"
+
+# ARCHS="arm64 x86_64" builds each slice separately and merges them with lipo
+# (no Xcode-only multi-arch support needed); default is the host architecture.
+swift_build() {
+    CLANG_MODULE_CACHE_PATH="$MODULE_CACHE" \
+    SWIFTPM_MODULECACHE_OVERRIDE="$MODULE_CACHE" \
+    swift build --package-path "$ROOT" -c release --disable-sandbox "$@"
+}
 
 mkdir -p "$MODULE_CACHE"
-CLANG_MODULE_CACHE_PATH="$MODULE_CACHE" \
-SWIFTPM_MODULECACHE_OVERRIDE="$MODULE_CACHE" \
-swift build --package-path "$ROOT" -c release --disable-sandbox
-
-BIN_DIR=$(CLANG_MODULE_CACHE_PATH="$MODULE_CACHE" \
-    SWIFTPM_MODULECACHE_OVERRIDE="$MODULE_CACHE" \
-    swift build --package-path "$ROOT" -c release --show-bin-path --disable-sandbox)
+BINARY="$BUILD_DIR/$EXECUTABLE_NAME.universal"
+if [ -n "${ARCHS:-}" ]; then
+    # Slice paths accumulate in the positional parameters so spaces survive.
+    set --
+    for arch in $ARCHS; do
+        swift_build --triple "$arch-apple-macosx$MIN_MACOS"
+        slice_dir=$(swift_build --triple "$arch-apple-macosx$MIN_MACOS" --show-bin-path)
+        set -- "$@" "$slice_dir/$EXECUTABLE_NAME"
+    done
+    lipo -create "$@" -output "$BINARY"
+else
+    swift_build
+    cp "$(swift_build --show-bin-path)/$EXECUTABLE_NAME" "$BINARY"
+fi
 
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp "$BIN_DIR/ActiveBreak" "$APP/Contents/MacOS/ActiveBreak"
+cp "$BINARY" "$APP/Contents/MacOS/$EXECUTABLE_NAME"
+rm -f "$BINARY"
 
-cat > "$APP/Contents/Info.plist" <<'PLIST'
+cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -27,27 +43,31 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
     <key>CFBundleDevelopmentRegion</key>
     <string>en</string>
     <key>CFBundleExecutable</key>
-    <string>ActiveBreak</string>
+    <string>$EXECUTABLE_NAME</string>
     <key>CFBundleIdentifier</key>
-    <string>com.vladimirli.ActiveBreak</string>
+    <string>$BUNDLE_ID</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
-    <string>ActiveBreak</string>
+    <string>$APP_NAME</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0.0</string>
+    <string>$BUNDLE_SHORT_VERSION</string>
     <key>CFBundleVersion</key>
-    <string>1</string>
+    <string>$BUILD_NUMBER</string>
     <key>LSMinimumSystemVersion</key>
-    <string>14.0</string>
+    <string>$MIN_MACOS</string>
     <key>LSUIElement</key>
     <true/>
 </dict>
 </plist>
 PLIST
 
-codesign --force --deep --sign - "$APP"
+if [ "$SIGN_IDENTITY" = "-" ]; then
+    codesign --force --deep --sign - "$APP"
+else
+    codesign --force --deep --options runtime --timestamp --sign "$SIGN_IDENTITY" "$APP"
+fi
 "$ROOT/scripts/verify-app.sh" "$APP"
 printf '%s\n' "$APP"

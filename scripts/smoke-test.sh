@@ -2,7 +2,7 @@
 set -eu
 
 ROOT=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
-APP="$ROOT/.build/ActiveBreak.app"
+. "$ROOT/scripts/release-config.sh"
 STATE_DIR=$(mktemp -d "${TMPDIR:-/tmp}/activebreak-smoke.XXXXXX")
 STATE_FILE="$STATE_DIR/state.json"
 REAL_STATE="$HOME/Library/Application Support/ActiveBreak/state.json"
