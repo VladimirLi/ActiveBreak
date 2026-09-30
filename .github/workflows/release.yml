@@ -24,7 +24,7 @@ jobs:
 
       - name: Build and package
         env:
-          VERSION: ${{ github.ref_type == 'tag' && github.ref_name || inputs.version || '0.0.0-dev' }}
+          VERSION: ${{ github.event_name == 'push' && github.ref_name || inputs.version || '0.0.0-dev' }}
           ARCHS: arm64 x86_64
         run: |
           swift --version
@@ -38,7 +38,7 @@ jobs:
           compression-level: 0
 
   release:
-    if: github.ref_type == 'tag'
+    if: github.event_name == 'push' && github.ref_type == 'tag'
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 10

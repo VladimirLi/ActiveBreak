@@ -50,7 +50,7 @@ closure more than once cannot create a second history record.
 
 Requires macOS 14 (Sonoma) or newer on Apple Silicon or Intel.
 
-1. Download `ActiveBreak-<version>.dmg` from the
+1. Download the `.dmg` (named `<app name>-<version>.dmg`) from the
    [latest release](https://github.com/VladimirLi/ActiveBreak/releases/latest).
    A `.zip` of the same app is attached too.
 2. Open the DMG and drag the app onto the **Applications** shortcut. Install it
@@ -61,6 +61,13 @@ Requires macOS 14 (Sonoma) or newer on Apple Silicon or Intel.
 
 The app lives in the menu bar only and has no Dock icon.
 
+The display name (app bundle, DMG and release file names) is set in one place,
+`APP_NAME` in `scripts/release-config.sh`; the install steps above only spell it
+out in the `APP_NAME=` line of the Terminal alternative. The SwiftPM product and
+target names, the bundle identifier, the log subsystem and the Application
+Support folder intentionally keep the name `ActiveBreak` and do not change with
+the display name.
+
 ### First launch on macOS 15 Sequoia and macOS 26 Tahoe
 
 Control-click > Open no longer bypasses the warning on these versions.
@@ -68,7 +75,7 @@ Control-click > Open no longer bypasses the warning on these versions.
 1. Open the app once and dismiss the warning ("Done" or "OK"; do not move it to
    the Trash).
 2. Open **System Settings > Privacy & Security** and scroll to **Security**.
-3. Click **Open Anyway** next to the ActiveBreak message and authenticate with
+3. Click **Open Anyway** next to the message about the app and authenticate with
    your password or Touch ID.
 4. Click **Open** when the warning appears again.
 
@@ -83,7 +90,8 @@ click **Open** in the dialog. The Open Anyway steps above also work.
 ### Terminal alternative (any version)
 
 ```sh
-xattr -dr com.apple.quarantine /Applications/ActiveBreak.app
+APP_NAME=ActiveBreak
+xattr -dr com.apple.quarantine "/Applications/$APP_NAME.app"
 ```
 
 This removes the download quarantine flag from the app so macOS stops asking.

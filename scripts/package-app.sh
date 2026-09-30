@@ -17,14 +17,14 @@ swift_build() {
 mkdir -p "$MODULE_CACHE"
 BINARY="$BUILD_DIR/$EXECUTABLE_NAME.universal"
 if [ -n "${ARCHS:-}" ]; then
-    SLICES=""
+    # Slice paths accumulate in the positional parameters so spaces survive.
+    set --
     for arch in $ARCHS; do
         swift_build --triple "$arch-apple-macosx$MIN_MACOS"
         slice_dir=$(swift_build --triple "$arch-apple-macosx$MIN_MACOS" --show-bin-path)
-        SLICES="$SLICES $slice_dir/$EXECUTABLE_NAME"
+        set -- "$@" "$slice_dir/$EXECUTABLE_NAME"
     done
-    # shellcheck disable=SC2086
-    lipo -create $SLICES -output "$BINARY"
+    lipo -create "$@" -output "$BINARY"
 else
     swift_build
     cp "$(swift_build --show-bin-path)/$EXECUTABLE_NAME" "$BINARY"

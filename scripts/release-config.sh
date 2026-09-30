@@ -23,8 +23,15 @@ if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?
 fi
 # CFBundleShortVersionString allows digits and periods only, so drop any suffix.
 BUNDLE_SHORT_VERSION=${VERSION%%-*}
-# CFBundleVersion: monotonically increasing; commit count unless overridden.
-BUILD_NUMBER=${BUILD_NUMBER:-$(git -C "$ROOT" rev-list --count HEAD 2>/dev/null || echo 1)}
+# CFBundleVersion: a UTC build timestamp (YYYYMMDDHHMMSS), so every build gets a
+# unique, increasing number regardless of git history or tag. Override with a
+# numeric BUILD_NUMBER. Exported so child scripts reuse the same value.
+BUILD_NUMBER=${BUILD_NUMBER:-$(date -u +%Y%m%d%H%M%S)}
+if ! printf '%s' "$BUILD_NUMBER" | grep -Eq '^[0-9]+$'; then
+    printf 'Invalid BUILD_NUMBER "%s"; expected digits only\n' "$BUILD_NUMBER" >&2
+    exit 1
+fi
+export BUILD_NUMBER
 
 APP="$ROOT/.build/$APP_NAME.app"
 DIST="$ROOT/dist"
