@@ -25,6 +25,7 @@ jobs:
       - name: Build and package
         env:
           VERSION: ${{ github.event_name == 'push' && github.ref_name || inputs.version || '0.0.0-dev' }}
+          BUILD_NUMBER: ${{ github.run_number }}
           ARCHS: arm64 x86_64
         run: |
           swift --version

@@ -23,11 +23,13 @@ if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?
 fi
 # CFBundleShortVersionString allows digits and periods only, so drop any suffix.
 BUNDLE_SHORT_VERSION=${VERSION%%-*}
-# CFBundleVersion: microseconds since the Unix epoch, so every build gets a
-# unique, increasing number regardless of git history or tag, even for builds
-# started within the same second. Override with a numeric BUILD_NUMBER. Exported
-# so child scripts reuse the same value.
-BUILD_NUMBER=${BUILD_NUMBER:-$(perl -MTime::HiRes=gettimeofday -e '($s, $u) = gettimeofday; printf "%d%06d", $s, $u')}
+# CFBundleVersion: the GitHub Actions run number, which GitHub serializes and
+# increments for every run of the release workflow, so published builds get
+# unique, increasing numbers. Local builds have no shared sequence and default
+# to 0; they are not for distribution. BUILD_NUMBER overrides either; a manual
+# override is validated as numeric but its uniqueness is the caller's job.
+# Exported so child scripts reuse the same value.
+BUILD_NUMBER=${BUILD_NUMBER:-${GITHUB_RUN_NUMBER:-0}}
 if ! printf '%s' "$BUILD_NUMBER" | grep -Eq '^[0-9]+$'; then
     printf 'Invalid BUILD_NUMBER "%s"; expected digits only\n' "$BUILD_NUMBER" >&2
     exit 1
