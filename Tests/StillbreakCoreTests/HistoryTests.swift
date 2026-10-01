@@ -402,7 +402,7 @@ private struct LegacyPersistedData: Encodable {
     let leftovers = try FileManager.default.contentsOfDirectory(
         atPath: current.deletingLastPathComponent().path
     )
-    #expect(leftovers == ["state.json"])
+    #expect(Set(leftovers) == ["state.json", LegacyStateMigration.baseFileName])
 }
 
 @Test func legacyStateMigrationIsNoOpWithoutLegacyData() throws {
@@ -466,4 +466,146 @@ private struct LegacyPersistedData: Encodable {
             legacyAppIsRunning: { true }
         ) == .notNeeded
     )
+}
+
+private func migrationFixture() -> (support: URL, legacy: URL, current: URL) {
+    let support = FileManager.default.temporaryDirectory
+        .appendingPathComponent("stillbreak-migration-\(UUID().uuidString)")
+    return (
+        support,
+        LegacyStateMigration.legacyURL(applicationSupport: support),
+        StateFileLocator.url(environment: [:], applicationSupport: support)
+    )
+}
+
+private func migrationRecord(_ offset: TimeInterval) -> HistoryRecord {
+    let start = Date(timeIntervalSince1970: 1_700_000_000 + offset)
+    return HistoryRecord(
+        intervalStart: start,
+        intervalEnd: start.addingTimeInterval(30),
+        activeDuration: 30,
+        overtimeDuration: 0
+    )
+}
+
+@Test func legacyStateMigrationMergesDataWrittenByLegacyAppAfterImport() throws {
+    let (support, legacy, current) = migrationFixture()
+    defer { try? FileManager.default.removeItem(at: support) }
+    let first = migrationRecord(0)
+    let imported = PersistedData(
+        settings: BreakSettings(workThreshold: 1_000),
+        history: [first],
+        savedAt: Date(timeIntervalSince1970: 1_700_000_100)
+    )
+    try HistoryStore(url: legacy).save(imported)
+    #expect(try LegacyStateMigration.migrateIfNeeded(current: current, legacy: legacy) == .migrated)
+
+    // Stillbreak runs and records its own history and a newer save.
+    let own = migrationRecord(1_000)
+    var stillbreak = try HistoryStore(url: current).load()
+    stillbreak.history.append(own)
+    stillbreak.savedAt = Date(timeIntervalSince1970: 1_700_002_000)
+    try HistoryStore(url: current).save(stillbreak)
+
+    // The old app is relaunched (login item), then writes newer data and quits.
+    let later = migrationRecord(500)
+    var legacyData = imported
+    legacyData.history.append(later)
+    legacyData.settings.workThreshold = 2_000
+    legacyData.savedAt = Date(timeIntervalSince1970: 1_700_001_000)
+    try HistoryStore(url: legacy).save(legacyData)
+    let legacyBytes = try Data(contentsOf: legacy)
+
+    // Stillbreak launches again, even if ActiveBreak is running again.
+    let outcome = try LegacyStateMigration.migrateIfNeeded(
+        current: current,
+        legacy: legacy,
+        legacyAppIsRunning: { true }
+    )
+    #expect(outcome == .merged(addedRecords: 1))
+    let result = try HistoryStore(url: current).load()
+    #expect(result.history.map(\.id) == [first.id, own.id, later.id])
+    // Stillbreak's save was newer, so its settings win; no history is lost.
+    #expect(result.settings.workThreshold == 1_000)
+    #expect(result.savedAt == stillbreak.savedAt)
+    #expect(try Data(contentsOf: legacy) == legacyBytes)
+
+    // Merging is idempotent.
+    #expect(try LegacyStateMigration.migrateIfNeeded(current: current, legacy: legacy) == .notNeeded)
+    #expect(try HistoryStore(url: current).load() == result)
+}
+
+@Test func legacyStateMigrationAdoptsNewerLegacySettingsAndTimer() throws {
+    let (support, legacy, current) = migrationFixture()
+    defer { try? FileManager.default.removeItem(at: support) }
+    let imported = PersistedData(savedAt: Date(timeIntervalSince1970: 1_700_000_100))
+    try HistoryStore(url: legacy).save(imported)
+    _ = try LegacyStateMigration.migrateIfNeeded(current: current, legacy: legacy)
+
+    var legacyData = imported
+    legacyData.settings.workThreshold = 4_321
+    legacyData.timer = TimerState(mode: .paused)
+    legacyData.savedAt = Date(timeIntervalSince1970: 1_700_005_000)
+    try HistoryStore(url: legacy).save(legacyData)
+
+    #expect(
+        try LegacyStateMigration.migrateIfNeeded(current: current, legacy: legacy)
+            == .merged(addedRecords: 0)
+    )
+    let result = try HistoryStore(url: current).load()
+    #expect(result.settings.workThreshold == 4_321)
+    #expect(result.timer.mode == .paused)
+    #expect(result.savedAt == legacyData.savedAt)
+}
+
+@Test func legacyStateMigrationDoesNotResurrectRecordsRemovedFromStillbreak() throws {
+    let (support, legacy, current) = migrationFixture()
+    defer { try? FileManager.default.removeItem(at: support) }
+    let kept = migrationRecord(0)
+    let removed = migrationRecord(100)
+    let imported = PersistedData(history: [kept, removed])
+    try HistoryStore(url: legacy).save(imported)
+    _ = try LegacyStateMigration.migrateIfNeeded(current: current, legacy: legacy)
+
+    var repaired = try HistoryStore(url: current).load()
+    repaired.history.removeAll { $0.id == removed.id }
+    try HistoryStore(url: current).save(repaired)
+
+    let added = migrationRecord(200)
+    var legacyData = imported
+    legacyData.history.append(added)
+    try HistoryStore(url: legacy).save(legacyData)
+
+    _ = try LegacyStateMigration.migrateIfNeeded(current: current, legacy: legacy)
+    #expect(try HistoryStore(url: current).load().history.map(\.id) == [kept.id, added.id])
+}
+
+@Test func legacyStateMigrationMergesWhenNoBaseWasRecorded() throws {
+    let (support, legacy, current) = migrationFixture()
+    defer { try? FileManager.default.removeItem(at: support) }
+    let theirs = migrationRecord(0)
+    let mine = migrationRecord(100)
+    try HistoryStore(url: legacy).save(PersistedData(history: [theirs]))
+    try HistoryStore(url: current).save(PersistedData(history: [mine]))
+
+    #expect(
+        try LegacyStateMigration.migrateIfNeeded(current: current, legacy: legacy)
+            == .merged(addedRecords: 1)
+    )
+    #expect(try HistoryStore(url: current).load().history.map(\.id) == [mine.id, theirs.id])
+}
+
+@Test func legacyStateMigrationFailsLoudlyWhenLegacyChangeIsUnreadable() throws {
+    let (support, legacy, current) = migrationFixture()
+    defer { try? FileManager.default.removeItem(at: support) }
+    let imported = PersistedData(history: [migrationRecord(0)])
+    try HistoryStore(url: legacy).save(imported)
+    _ = try LegacyStateMigration.migrateIfNeeded(current: current, legacy: legacy)
+    let before = try Data(contentsOf: current)
+
+    try Data("not json".utf8).write(to: legacy)
+    #expect(throws: Error.self) {
+        try LegacyStateMigration.migrateIfNeeded(current: current, legacy: legacy)
+    }
+    #expect(try Data(contentsOf: current) == before)
 }

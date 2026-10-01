@@ -74,11 +74,20 @@ settings from `~/Library/Application Support/ActiveBreak/state.json` to
 place untouched, so it doubles as a backup.
 
 Quit ActiveBreak from its menu **before** opening Stillbreak for the first time.
-While ActiveBreak is running, Stillbreak refuses to import (a one-time copy
-would miss anything ActiveBreak records afterwards), shows a storage error, and
-saves nothing; quit ActiveBreak and relaunch Stillbreak to retry. The same
-happens if the copy itself fails. After the import, ActiveBreak's data is no
-longer read, so keep using only Stillbreak.
+While ActiveBreak is running, Stillbreak refuses that first import (the copy
+would be stale immediately), shows a storage error, and saves nothing; quit
+ActiveBreak and relaunch Stillbreak to retry. The same happens if the copy
+itself fails.
+
+If ActiveBreak runs again later (for example from its old Login Items entry) and
+records more history, nothing is lost: every Stillbreak launch compares
+ActiveBreak's file with the copy it last imported (kept as
+`legacy-import-base.json` next to Stillbreak's `state.json`) and adds the new
+history records. If ActiveBreak saved more recently than Stillbreak, its
+settings and timer state win too. Changes made while both apps run at the same
+time are picked up on the next Stillbreak launch. If ActiveBreak's file cannot
+be read, Stillbreak shows a storage error and saves nothing rather than risk
+overwriting it.
 
 The bundle identifier changed (`com.vladimirli.Stillbreak`), so macOS treats it
 as a new app and asks for notification permission again. Your "Launch at login"
