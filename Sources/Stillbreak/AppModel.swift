@@ -1,4 +1,4 @@
-import ActiveBreakCore
+import StillbreakCore
 import AppKit
 import CoreGraphics
 import Foundation
@@ -44,14 +44,21 @@ final class AppModel: NSObject, ObservableObject {
             for: .applicationSupportDirectory,
             in: .userDomainMask
         ).first!
+        let environment = ProcessInfo.processInfo.environment
         let stateURL = StateFileLocator.url(
-            environment: ProcessInfo.processInfo.environment,
+            environment: environment,
             applicationSupport: applicationSupport
         )
         let store = HistoryStore(url: stateURL)
         let loaded: PersistedData
         let loadError: String?
         do {
+            if environment[StateFileLocator.overrideVariable] == nil {
+                _ = try LegacyStateMigration.migrateIfNeeded(
+                    current: stateURL,
+                    legacy: LegacyStateMigration.legacyURL(applicationSupport: applicationSupport)
+                )
+            }
             loaded = try store.load()
             loadError = nil
         } catch {
@@ -238,7 +245,7 @@ final class AppModel: NSObject, ObservableObject {
     func export(format: ExportFormat, from start: Date, before end: Date) {
         let panel = NSSavePanel()
         panel.allowedContentTypes = [format.contentType]
-        panel.nameFieldStringValue = "ActiveBreak-\(format.rawValue).\(format.fileExtension)"
+        panel.nameFieldStringValue = "Stillbreak-\(format.rawValue).\(format.fileExtension)"
         guard panel.runModal() == .OK, let url = panel.url else { return }
 
         do {
@@ -293,14 +300,14 @@ final class AppModel: NSObject, ObservableObject {
             guard granted else { return }
             let content = UNMutableNotificationContent()
             content.title = "Time for a break"
-            content.body = "You reached your ActiveBreak work threshold."
+            content.body = "You reached your Stillbreak work threshold."
             content.sound = sound ? .default : nil
             center.add(UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil))
         }
     }
 
     private func configureLaunchAtLogin(enabled: Bool) {
-        guard ProcessInfo.processInfo.environment["ACTIVEBREAK_DISABLE_LOGIN_ITEM_MUTATION"] != "1" else {
+        guard ProcessInfo.processInfo.environment["STILLBREAK_DISABLE_LOGIN_ITEM_MUTATION"] != "1" else {
             log(
                 DiagnosticEvent(
                     category: .loginItem,
@@ -313,7 +320,7 @@ final class AppModel: NSObject, ObservableObject {
         }
         let service = SMAppService.mainApp
         do {
-            switch LaunchAtLoginPolicy.action(enabled: enabled, status: service.status.activeBreak) {
+            switch LaunchAtLoginPolicy.action(enabled: enabled, status: service.status.stillbreak) {
             case .register:
                 try service.register()
             case .unregister:
@@ -321,7 +328,7 @@ final class AppModel: NSObject, ObservableObject {
             case .none:
                 break
             }
-            let status = service.status.activeBreak
+            let status = service.status.stillbreak
             launchAtLoginError = LaunchAtLoginPolicy.errorMessage(
                 enabled: enabled,
                 status: status
@@ -441,7 +448,7 @@ private extension DiagnosticLevel {
 }
 
 private enum Logs {
-    private static let subsystem = "com.vladimirli.ActiveBreak"
+    private static let subsystem = "com.vladimirli.Stillbreak"
     static let timer = Logger(subsystem: subsystem, category: "timer")
     static let lifecycle = Logger(subsystem: subsystem, category: "lifecycle")
     static let persistence = Logger(subsystem: subsystem, category: "persistence")
@@ -456,7 +463,7 @@ private extension TimerEffect {
 }
 
 private extension SMAppService.Status {
-    var activeBreak: LaunchAtLoginStatus {
+    var stillbreak: LaunchAtLoginStatus {
         switch self {
         case .notRegistered:
             return .notRegistered

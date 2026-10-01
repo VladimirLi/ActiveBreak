@@ -68,7 +68,7 @@ public struct DiagnosticEvent: Codable, Equatable, Sendable {
     }
 
     public var message: String {
-        (try? String(data: JSONEncoder.activeBreak.encode(self), encoding: .utf8)) ?? "{}"
+        (try? String(data: JSONEncoder.stillbreak.encode(self), encoding: .utf8)) ?? "{}"
     }
 }
 

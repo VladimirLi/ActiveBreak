@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import ActiveBreakCore
+@testable import StillbreakCore
 
 private let utc: Calendar = {
     var calendar = Calendar(identifier: .gregorian)

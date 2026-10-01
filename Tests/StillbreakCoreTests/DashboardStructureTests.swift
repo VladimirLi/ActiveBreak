@@ -7,7 +7,7 @@ import Testing
         .deletingLastPathComponent()
         .deletingLastPathComponent()
     let source = try String(
-        contentsOf: repository.appendingPathComponent("Sources/ActiveBreak/Views.swift"),
+        contentsOf: repository.appendingPathComponent("Sources/Stillbreak/Views.swift"),
         encoding: .utf8
     )
     let dashboardStart = try #require(source.range(of: "struct DashboardView: View"))

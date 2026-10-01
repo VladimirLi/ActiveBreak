@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import ActiveBreakCore
+@testable import StillbreakCore
 
 @Test func persistenceRoundTrip() throws {
     let url = FileManager.default.temporaryDirectory
@@ -37,9 +37,9 @@ import Testing
         savedAt: start
     )
 
-    let decoded = try JSONDecoder.activeBreak.decode(
+    let decoded = try JSONDecoder.stillbreak.decode(
         PersistedData.self,
-        from: JSONEncoder.activeBreak.encode(legacy)
+        from: JSONEncoder.stillbreak.encode(legacy)
     )
     #expect(decoded.savedAt == start)
     #expect(decoded.savedSystemUptime == nil)
@@ -47,25 +47,25 @@ import Testing
 
 @Test func fractionalDateRoundTripAndLegacyDateDecode() throws {
     let date = Date(timeIntervalSince1970: 1_700_000_000.125)
-    let encoded = try JSONEncoder.activeBreak.encode(DateBox(date: date))
+    let encoded = try JSONEncoder.stillbreak.encode(DateBox(date: date))
     let text = try #require(String(data: encoded, encoding: .utf8))
     #expect(text.contains(".125"))
 
-    let decoded = try JSONDecoder.activeBreak.decode(DateBox.self, from: encoded)
+    let decoded = try JSONDecoder.stillbreak.decode(DateBox.self, from: encoded)
     #expect(abs(decoded.date.timeIntervalSince(date)) < 0.001)
 
     let legacy = Data(#"{"date":"2023-11-14T22:13:20Z"}"#.utf8)
     #expect(
-        try JSONDecoder.activeBreak.decode(DateBox.self, from: legacy).date
+        try JSONDecoder.stillbreak.decode(DateBox.self, from: legacy).date
             == Date(timeIntervalSince1970: 1_700_000_000)
     )
 }
 
 @Test func legacyIntervalAndHistoryDecodeIntoTimelineSegments() throws {
     let start = Date(timeIntervalSince1970: 1_700_000_000)
-    let encoder = JSONEncoder.activeBreak
+    let encoder = JSONEncoder.stillbreak
 
-    let interval = try JSONDecoder.activeBreak.decode(
+    let interval = try JSONDecoder.stillbreak.decode(
         ActiveInterval.self,
         from: encoder.encode(LegacyInterval(
             startedAt: start,
@@ -80,7 +80,7 @@ import Testing
         TimeSegment(start: start.addingTimeInterval(90), end: start.addingTimeInterval(120), isOvertime: true),
     ])
 
-    let history = try JSONDecoder.activeBreak.decode(
+    let history = try JSONDecoder.stillbreak.decode(
         HistoryRecord.self,
         from: encoder.encode(LegacyHistoryRecord(
             id: UUID(),
@@ -360,4 +360,76 @@ private struct LegacyPersistedData: Encodable {
     let timer: TimerState
     let history: [HistoryRecord]
     let savedAt: Date
+}
+
+@Test func legacyStateMigrationCopiesHistoryAndSettingsOnce() throws {
+    let support = FileManager.default.temporaryDirectory
+        .appendingPathComponent("stillbreak-migration-\(UUID().uuidString)")
+    defer { try? FileManager.default.removeItem(at: support) }
+    let legacy = LegacyStateMigration.legacyURL(applicationSupport: support)
+    let current = StateFileLocator.url(environment: [:], applicationSupport: support)
+    #expect(legacy.deletingLastPathComponent().lastPathComponent == "ActiveBreak")
+    #expect(current.deletingLastPathComponent().lastPathComponent == "Stillbreak")
+
+    let start = Date(timeIntervalSince1970: 1_700_000_000)
+    let original = PersistedData(
+        settings: BreakSettings(workThreshold: 1_234, launchAtLogin: false),
+        timer: TimerState(mode: .paused),
+        history: [
+            HistoryRecord(
+                intervalStart: start,
+                intervalEnd: start.addingTimeInterval(30),
+                activeDuration: 30,
+                overtimeDuration: 0
+            ),
+        ],
+        savedAt: start,
+        savedSystemUptime: 12_345.625
+    )
+    try HistoryStore(url: legacy).save(original)
+    let legacyBytes = try Data(contentsOf: legacy)
+
+    #expect(try LegacyStateMigration.migrateIfNeeded(current: current, legacy: legacy) == .migrated)
+    #expect(try HistoryStore(url: current).load() == original)
+    #expect(try Data(contentsOf: legacy) == legacyBytes)
+
+    // Later launches must not overwrite newer data with the legacy copy.
+    var newer = original
+    newer.settings.workThreshold = 999
+    try HistoryStore(url: current).save(newer)
+    #expect(try LegacyStateMigration.migrateIfNeeded(current: current, legacy: legacy) == .notNeeded)
+    #expect(try HistoryStore(url: current).load() == newer)
+    let leftovers = try FileManager.default.contentsOfDirectory(
+        atPath: current.deletingLastPathComponent().path
+    )
+    #expect(leftovers == ["state.json"])
+}
+
+@Test func legacyStateMigrationIsNoOpWithoutLegacyData() throws {
+    let support = FileManager.default.temporaryDirectory
+        .appendingPathComponent("stillbreak-migration-\(UUID().uuidString)")
+    defer { try? FileManager.default.removeItem(at: support) }
+    let current = StateFileLocator.url(environment: [:], applicationSupport: support)
+    let outcome = try LegacyStateMigration.migrateIfNeeded(
+        current: current,
+        legacy: LegacyStateMigration.legacyURL(applicationSupport: support)
+    )
+    #expect(outcome == .notNeeded)
+    #expect(!FileManager.default.fileExists(atPath: current.path))
+}
+
+@Test func legacyStateMigrationFailureLeavesNoPartialState() throws {
+    let support = FileManager.default.temporaryDirectory
+        .appendingPathComponent("stillbreak-migration-\(UUID().uuidString)")
+    defer { try? FileManager.default.removeItem(at: support) }
+    let legacy = LegacyStateMigration.legacyURL(applicationSupport: support)
+    try HistoryStore(url: legacy).save(PersistedData())
+    // A regular file where the new folder must go makes the copy fail.
+    let current = StateFileLocator.url(environment: [:], applicationSupport: support)
+    try Data().write(to: current.deletingLastPathComponent())
+
+    #expect(throws: Error.self) {
+        try LegacyStateMigration.migrateIfNeeded(current: current, legacy: legacy)
+    }
+    #expect(FileManager.default.fileExists(atPath: legacy.path))
 }

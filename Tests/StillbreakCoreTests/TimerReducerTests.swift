@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import ActiveBreakCore
+@testable import StillbreakCore
 
 private let settings = BreakSettings(workThreshold: 10, deadTime: 300)
 private let start = Date(timeIntervalSince1970: 1_700_000_000)
@@ -200,9 +200,9 @@ private let start = Date(timeIntervalSince1970: 1_700_000_000)
         ),
         savedAt: fractionalStart.addingTimeInterval(250)
     )
-    let decoded = try JSONDecoder.activeBreak.decode(
+    let decoded = try JSONDecoder.stillbreak.decode(
         PersistedData.self,
-        from: JSONEncoder.activeBreak.encode(persisted)
+        from: JSONEncoder.stillbreak.encode(persisted)
     )
     var reducer = TimerReducer(state: decoded.timer)
 

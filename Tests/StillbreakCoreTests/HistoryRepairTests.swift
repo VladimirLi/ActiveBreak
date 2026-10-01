@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import ActiveBreakCore
+@testable import StillbreakCore
 
 @Test func repairRemovesRepeatedZeroWorkClosuresAndPreservesUniqueRecords() {
     let start = Date(timeIntervalSince1970: 1_700_000_000)
@@ -71,7 +71,7 @@ import Testing
     let backupURL = try #require(applied.backupURL)
     #expect(try Data(contentsOf: backupURL) == original)
     #expect(try HistoryStore(url: stateURL).load().history.isEmpty)
-    #expect(try JSONDecoder.activeBreak.decode(
+    #expect(try JSONDecoder.stillbreak.decode(
         PersistedData.self,
         from: Data(contentsOf: stateURL)
     ).history.isEmpty)

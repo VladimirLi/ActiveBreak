@@ -1,4 +1,4 @@
-import ActiveBreakCore
+import StillbreakCore
 import Foundation
 
 struct Options {
@@ -50,10 +50,10 @@ do {
     print("\(result.manifest.mode) before=\(report.beforeCount) after=\(report.afterCount) removed=\(report.removedIDs.count)")
 } catch is UsageError {
     FileHandle.standardError.write(Data(
-        "usage: ActiveBreakRepair --state PATH --manifest PATH [--candidate PATH | --apply]\n".utf8
+        "usage: StillbreakRepair --state PATH --manifest PATH [--candidate PATH | --apply]\n".utf8
     ))
     exit(64)
 } catch {
-    FileHandle.standardError.write(Data("ActiveBreakRepair failed: \(error)\n".utf8))
+    FileHandle.standardError.write(Data("StillbreakRepair failed: \(error)\n".utf8))
     exit(1)
 }

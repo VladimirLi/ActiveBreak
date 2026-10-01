@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import ActiveBreakCore
+@testable import StillbreakCore
 
 @Test func closureRecordKeepsIntervalIdentityAndAppliesOnce() throws {
     let start = Date(timeIntervalSince1970: 1_700_000_000)
@@ -26,9 +26,9 @@ import Testing
     #expect(!second.historyChanged)
     #expect(second.data.history.map(\.id) == [intervalID])
 
-    let decoded = try JSONDecoder.activeBreak.decode(
+    let decoded = try JSONDecoder.stillbreak.decode(
         PersistedData.self,
-        from: JSONEncoder.activeBreak.encode(first.data)
+        from: JSONEncoder.stillbreak.encode(first.data)
     )
     #expect(decoded.history.first?.id == intervalID)
 

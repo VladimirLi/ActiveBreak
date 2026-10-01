@@ -112,9 +112,9 @@ public enum LaunchAtLoginPolicy {
     ) -> String? {
         switch status {
         case .notFound:
-            return "ActiveBreak could not be found by macOS Login Items."
+            return "Stillbreak could not be found by macOS Login Items."
         case .requiresApproval where enabled:
-            return "Open System Settings to approve ActiveBreak as a login item."
+            return "Open System Settings to approve Stillbreak as a login item."
         default:
             return nil
         }
@@ -122,14 +122,16 @@ public enum LaunchAtLoginPolicy {
 }
 
 public enum StateFileLocator {
+    public static let overrideVariable = "STILLBREAK_STATE_FILE"
+
     public static func url(
         environment: [String: String],
         applicationSupport: URL
     ) -> URL {
-        environment["ACTIVEBREAK_STATE_FILE"].map {
+        environment[overrideVariable].map {
             URL(fileURLWithPath: $0).standardizedFileURL
         } ?? applicationSupport
-            .appendingPathComponent("ActiveBreak", isDirectory: true)
+            .appendingPathComponent("Stillbreak", isDirectory: true)
             .appendingPathComponent("state.json")
     }
 }
