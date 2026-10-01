@@ -433,3 +433,37 @@ private struct LegacyPersistedData: Encodable {
     }
     #expect(FileManager.default.fileExists(atPath: legacy.path))
 }
+
+@Test func legacyStateMigrationRefusesWhileLegacyAppRuns() throws {
+    let support = FileManager.default.temporaryDirectory
+        .appendingPathComponent("stillbreak-migration-\(UUID().uuidString)")
+    defer { try? FileManager.default.removeItem(at: support) }
+    let legacy = LegacyStateMigration.legacyURL(applicationSupport: support)
+    let current = StateFileLocator.url(environment: [:], applicationSupport: support)
+    try HistoryStore(url: legacy).save(PersistedData())
+
+    #expect(throws: LegacyStateMigration.Failure.legacyAppRunning) {
+        try LegacyStateMigration.migrateIfNeeded(
+            current: current,
+            legacy: legacy,
+            legacyAppIsRunning: { true }
+        )
+    }
+    #expect(!FileManager.default.fileExists(atPath: current.path))
+
+    #expect(
+        try LegacyStateMigration.migrateIfNeeded(
+            current: current,
+            legacy: legacy,
+            legacyAppIsRunning: { false }
+        ) == .migrated
+    )
+    // Once migrated, a running legacy app is irrelevant and never consulted.
+    #expect(
+        try LegacyStateMigration.migrateIfNeeded(
+            current: current,
+            legacy: legacy,
+            legacyAppIsRunning: { true }
+        ) == .notNeeded
+    )
+}

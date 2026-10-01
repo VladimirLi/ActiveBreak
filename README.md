@@ -71,15 +71,22 @@ Stillbreak was called ActiveBreak before its first public release. The first
 time Stillbreak launches and finds no data of its own, it copies your history and
 settings from `~/Library/Application Support/ActiveBreak/state.json` to
 `~/Library/Application Support/Stillbreak/state.json`. The old file is left in
-place untouched, so it doubles as a backup. If the copy fails, Stillbreak shows a
-storage error and does not save anything until the next launch can retry.
+place untouched, so it doubles as a backup.
+
+Quit ActiveBreak from its menu **before** opening Stillbreak for the first time.
+While ActiveBreak is running, Stillbreak refuses to import (a one-time copy
+would miss anything ActiveBreak records afterwards), shows a storage error, and
+saves nothing; quit ActiveBreak and relaunch Stillbreak to retry. The same
+happens if the copy itself fails. After the import, ActiveBreak's data is no
+longer read, so keep using only Stillbreak.
 
 The bundle identifier changed (`com.vladimirli.Stillbreak`), so macOS treats it
-as a new app: it asks for notification permission again, and "Launch at login"
-registers the new app. Quit ActiveBreak, delete `ActiveBreak.app`, and remove
-any leftover ActiveBreak entry in **System Settings > General > Login Items** so
-both apps do not start together. Past diagnostics stay under the old
-`com.vladimirli.ActiveBreak` log subsystem.
+as a new app and asks for notification permission again. Your "Launch at login"
+choice is carried over, but Stillbreak will not register itself as a login item
+while `ActiveBreak.app` is still installed, so the two never start together;
+Settings says so. Delete `ActiveBreak.app` (its old Login Items entry goes with
+it), then relaunch Stillbreak once and it registers itself. Past diagnostics
+stay under the old `com.vladimirli.ActiveBreak` log subsystem.
 
 ### First launch on macOS 15 Sequoia and macOS 26 Tahoe
 

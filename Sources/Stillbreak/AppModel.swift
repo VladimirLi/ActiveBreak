@@ -56,7 +56,12 @@ final class AppModel: NSObject, ObservableObject {
             if environment[StateFileLocator.overrideVariable] == nil {
                 _ = try LegacyStateMigration.migrateIfNeeded(
                     current: stateURL,
-                    legacy: LegacyStateMigration.legacyURL(applicationSupport: applicationSupport)
+                    legacy: LegacyStateMigration.legacyURL(applicationSupport: applicationSupport),
+                    legacyAppIsRunning: {
+                        !NSRunningApplication.runningApplications(
+                            withBundleIdentifier: LegacyStateMigration.legacyBundleIdentifier
+                        ).isEmpty
+                    }
                 )
             }
             loaded = try store.load()
@@ -319,8 +324,15 @@ final class AppModel: NSObject, ObservableObject {
             return
         }
         let service = SMAppService.mainApp
+        let legacyAppInstalled = NSWorkspace.shared.urlForApplication(
+            withBundleIdentifier: LegacyStateMigration.legacyBundleIdentifier
+        ) != nil
         do {
-            switch LaunchAtLoginPolicy.action(enabled: enabled, status: service.status.stillbreak) {
+            switch LaunchAtLoginPolicy.action(
+                enabled: enabled,
+                status: service.status.stillbreak,
+                legacyAppInstalled: legacyAppInstalled
+            ) {
             case .register:
                 try service.register()
             case .unregister:
@@ -331,11 +343,13 @@ final class AppModel: NSObject, ObservableObject {
             let status = service.status.stillbreak
             launchAtLoginError = LaunchAtLoginPolicy.errorMessage(
                 enabled: enabled,
-                status: status
+                status: status,
+                legacyAppInstalled: legacyAppInstalled
             )
             let event = LoginItemDiagnosticBuilder.configure(
                 enabled: enabled,
-                status: status
+                status: status,
+                legacyAppInstalled: legacyAppInstalled
             )
             log(
                 event,
