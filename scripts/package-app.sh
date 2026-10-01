@@ -34,6 +34,10 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BINARY" "$APP/Contents/MacOS/$EXECUTABLE_NAME"
 rm -f "$BINARY"
+cp "$ROOT/Resources/AppIcon.icns" \
+    "$ROOT/Resources/MenuBarGlyphTemplate.png" \
+    "$ROOT/Resources/MenuBarGlyphTemplate@2x.png" \
+    "$APP/Contents/Resources/"
 
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -44,6 +48,8 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <string>en</string>
     <key>CFBundleExecutable</key>
     <string>$EXECUTABLE_NAME</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
     <key>CFBundleIdentifier</key>
     <string>$BUNDLE_ID</string>
     <key>CFBundleInfoDictionaryVersion</key>

@@ -29,10 +29,23 @@ private struct StatusBarCountdown: View {
     @ObservedObject var status: StatusBarModel
 
     var body: some View {
-        Text(status.text)
-            .monospacedDigit()
-            .foregroundStyle(status.isOverdue ? .red : .primary)
+        HStack(spacing: 5) {
+            if let glyph = Self.glyph {
+                Image(nsImage: glyph)
+                    .accessibilityHidden(true)
+            }
+            Text(status.text)
+                .monospacedDigit()
+                .foregroundStyle(status.isOverdue ? .red : .primary)
+        }
     }
+
+    private static let glyph: NSImage? = {
+        guard let image = NSImage(named: "MenuBarGlyphTemplate") else { return nil }
+        image.isTemplate = true
+        image.size = NSSize(width: 18, height: 18)
+        return image
+    }()
 }
 
 private struct MenuContent: View {
