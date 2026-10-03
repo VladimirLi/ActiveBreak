@@ -580,6 +580,73 @@ private func migrationRecord(_ offset: TimeInterval) -> HistoryRecord {
     #expect(try HistoryStore(url: current).load().history.map(\.id) == [kept.id, added.id])
 }
 
+@Test func legacyStateMigrationKeepsBothRecordsWhenBothAppsClosedSameInheritedInterval() throws {
+    let (support, legacy, current) = migrationFixture()
+    defer { try? FileManager.default.removeItem(at: support) }
+    let id = UUID()
+    let start = Date(timeIntervalSince1970: 1_700_000_000)
+    func closed(active: TimeInterval) -> HistoryRecord {
+        HistoryRecord(
+            id: id,
+            intervalStart: start,
+            intervalEnd: start.addingTimeInterval(120),
+            activeDuration: active,
+            overtimeDuration: 0
+        )
+    }
+    let untouched = migrationRecord(1_000)
+    // Both apps inherit the same active interval; neither has a record for it yet.
+    let imported = PersistedData(history: [untouched])
+    try HistoryStore(url: legacy).save(imported)
+    _ = try LegacyStateMigration.migrateIfNeeded(current: current, legacy: legacy)
+
+    var stillbreak = try HistoryStore(url: current).load()
+    let theirs = closed(active: 30)
+    stillbreak.history.append(theirs)
+    try HistoryStore(url: current).save(stillbreak)
+
+    let legacyRecord = closed(active: 60)
+    var legacyData = imported
+    legacyData.history.append(legacyRecord)
+    try HistoryStore(url: legacy).save(legacyData)
+
+    #expect(
+        try LegacyStateMigration.migrateIfNeeded(current: current, legacy: legacy)
+            == .merged(addedRecords: 1)
+    )
+    let result = try HistoryStore(url: current).load()
+    #expect(result.history.count == 3)
+    #expect(Set(result.history.map(\.id)).count == 3)
+    #expect(result.history.first { $0.id == id } == theirs)
+    let preserved = try #require(result.history.first { $0.id != id && $0.id != untouched.id })
+    #expect(preserved.activeDuration == 60)
+    #expect(preserved.intervalStart == start)
+    #expect(preserved.intervalEnd == legacyRecord.intervalEnd)
+
+    // Idempotent, including a retry after a crash before the base was written.
+    #expect(try LegacyStateMigration.migrateIfNeeded(current: current, legacy: legacy) == .notNeeded)
+    try? FileManager.default.removeItem(at: LegacyStateMigration.baseURL(current: current))
+    #expect(
+        try LegacyStateMigration.migrateIfNeeded(current: current, legacy: legacy)
+            == .merged(addedRecords: 0)
+    )
+    #expect(try HistoryStore(url: current).load().history.count == 3)
+}
+
+@Test func legacyStateMigrationIgnoresIdenticalRecordsAlreadyInStillbreak() throws {
+    let (support, legacy, current) = migrationFixture()
+    defer { try? FileManager.default.removeItem(at: support) }
+    let shared = migrationRecord(0)
+    try HistoryStore(url: legacy).save(PersistedData(history: [shared]))
+    try HistoryStore(url: current).save(PersistedData(history: [shared]))
+
+    #expect(
+        try LegacyStateMigration.migrateIfNeeded(current: current, legacy: legacy)
+            == .merged(addedRecords: 0)
+    )
+    #expect(try HistoryStore(url: current).load().history == [shared])
+}
+
 @Test func legacyStateMigrationMergesWhenNoBaseWasRecorded() throws {
     let (support, legacy, current) = migrationFixture()
     defer { try? FileManager.default.removeItem(at: support) }

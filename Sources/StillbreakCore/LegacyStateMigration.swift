@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 
 /// Imports history and settings from the pre-rename "ActiveBreak" Application
@@ -87,17 +88,31 @@ public enum LegacyStateMigration {
         let legacyData = try decoder.decode(PersistedData.self, from: legacyBytes)
         // An unreadable base only costs resurrecting records removed from
         // Stillbreak; adding too much is safer than dropping ActiveBreak data.
-        let baseIDs = Set(
-            (baseBytes.flatMap { try? decoder.decode(PersistedData.self, from: $0) }?.history ?? [])
-                .map(\.id)
-        )
+        let baseHistory = baseBytes.flatMap { try? decoder.decode(PersistedData.self, from: $0) }?.history ?? []
+        let baseRecords = Dictionary(baseHistory.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         let store = HistoryStore(url: current)
         let original = try store.load()
         var merged = original
-        let known = Set(merged.history.map(\.id)).union(baseIDs)
-        let added = legacyData.history
-            .filter { !known.contains($0.id) }
-            .sorted { $0.intervalStart < $1.intervalStart }
+        let currentRecords = Dictionary(
+            merged.history.map { ($0.id, $0) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        var knownIDs = Set(currentRecords.keys).union(baseRecords.keys)
+        var added: [HistoryRecord] = []
+        for record in legacyData.history {
+            if let existing = currentRecords[record.id] {
+                // Both apps closed the same inherited interval with different
+                // data. Keep Stillbreak's record and also keep the legacy one
+                // under a derived ID, unless ActiveBreak never changed it.
+                guard existing != record, baseRecords[record.id] != record else { continue }
+                var copy = record
+                copy.id = try conflictID(for: record)
+                if knownIDs.insert(copy.id).inserted { added.append(copy) }
+            } else if knownIDs.insert(record.id).inserted {
+                added.append(record)
+            }
+        }
+        added.sort { $0.intervalStart < $1.intervalStart }
         merged.history.append(contentsOf: added)
         if legacyData.savedAt > merged.savedAt {
             merged.settings = legacyData.settings
@@ -109,5 +124,16 @@ public enum LegacyStateMigration {
         // Base last: a crash before this repeats an idempotent merge.
         try legacyBytes.write(to: base, options: .atomic)
         return .merged(addedRecords: added.count)
+    }
+
+    /// Stable across retries, so a crash between saving the merge and
+    /// recording the base cannot add the same conflicting record twice.
+    private static func conflictID(for record: HistoryRecord) throws -> UUID {
+        let digest = SHA256.hash(data: try JSONEncoder.stillbreak.encode(record))
+        let bytes = Array(digest.prefix(16))
+        return UUID(uuid: (
+            bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
+            bytes[8], bytes[9], bytes[10], bytes[11], bytes[12], bytes[13], bytes[14], bytes[15]
+        ))
     }
 }
