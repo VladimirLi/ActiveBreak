@@ -22,6 +22,12 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Install dmgbuild
+        run: |
+          python3 -m venv "$RUNNER_TEMP/dmgbuild-venv"
+          "$RUNNER_TEMP/dmgbuild-venv/bin/python" -m pip install --require-hashes -r scripts/dmgbuild-requirements.txt
+          echo "$RUNNER_TEMP/dmgbuild-venv/bin" >> "$GITHUB_PATH"
+
       - name: Build and package
         env:
           VERSION: ${{ github.event_name == 'push' && github.ref_name || inputs.version || '0.0.0-dev' }}

@@ -16,8 +16,13 @@ test "$(plutil -extract CFBundleVersion raw -o - "$PLIST")" = "$BUILD_NUMBER"
 NAME="$ARTIFACT_PREFIX-$VERSION"
 DMG="$DIST/$NAME.dmg"
 ZIP="$DIST/$NAME.zip"
-STAGE=$(mktemp -d "${TMPDIR:-/tmp}/stillbreak-dmg.XXXXXX")
-trap 'rm -rf "$STAGE"' EXIT INT TERM
+DMG_BACKGROUND="$ROOT/docs/brand/dmg-background.tiff"
+DMG_SETTINGS="$ROOT/docs/brand/tools/dmg-settings.py"
+
+if ! command -v dmgbuild >/dev/null 2>&1; then
+    printf 'dmgbuild not found. Install it with:\n  python3 -m pip install --require-hashes -r scripts/dmgbuild-requirements.txt\n' >&2
+    exit 1
+fi
 
 rm -rf "$DIST"
 mkdir -p "$DIST"
@@ -25,9 +30,8 @@ mkdir -p "$DIST"
 # ditto keeps the code signature, symlinks and permissions intact.
 ditto -c -k --keepParent "$APP" "$ZIP"
 
-ditto "$APP" "$STAGE/$APP_NAME.app"
-ln -s /Applications "$STAGE/Applications"
-hdiutil create -volname "$APP_NAME" -srcfolder "$STAGE" -fs HFS+ -format UDZO -ov "$DMG"
+# dmgbuild writes the window layout and background without needing Finder.
+dmgbuild -s "$DMG_SETTINGS" -D app="$APP" -D background="$DMG_BACKGROUND" "$APP_NAME" "$DMG"
 if [ "$SIGN_IDENTITY" != "-" ]; then
     codesign --force --timestamp --sign "$SIGN_IDENTITY" "$DMG"
 fi

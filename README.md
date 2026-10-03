@@ -8,6 +8,20 @@ It uses macOS's aggregate HID idle-time API. It does not record keys, pointer
 positions, app names, window titles, or raw input events, and it does not need
 Accessibility or Input Monitoring permission.
 
+## Screenshots
+
+The countdown sits in the menu bar: <picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand/screenshots/menubar-countdown-dark.png"><img alt="Menu bar status item showing a countdown of minutes and seconds" src="docs/brand/screenshots/menubar-countdown-light.png" height="20"></picture> and runs below zero in overtime: <picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand/screenshots/menubar-overtime-dark.png"><img alt="Menu bar status item showing a negative countdown in overtime" src="docs/brand/screenshots/menubar-overtime-light.png" height="20"></picture>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/brand/screenshots/dashboard-dark.png">
+  <img alt="Stillbreak Dashboard showing seven days of work blocks in blue with overtime in red" src="docs/brand/screenshots/dashboard-light.png">
+</picture>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/brand/screenshots/settings-dark.png">
+  <img alt="Stillbreak Settings window with work threshold, dead time and notification options" src="docs/brand/screenshots/settings-light.png" width="282">
+</picture>
+
 ## How timing works
 
 The default work threshold is 25 minutes and the default dead time is 5
@@ -171,7 +185,10 @@ sufficient.
 With Xcode, open `Package.swift`, select the `Stillbreak` executable scheme,
 and Run. Use Product > Test to run the package tests. To create the standalone
 ad-hoc signed bundle, run `./scripts/package-app.sh` in Terminal. To also
-produce the `.dmg`, `.zip` and checksums in `dist/`, run
+produce the `.dmg`, `.zip` and checksums in `dist/`, first install the pinned
+DMG builder with
+`python3 -m pip install --require-hashes -r scripts/dmgbuild-requirements.txt`
+(a virtual environment is recommended), then run
 `VERSION=1.0.0 ./scripts/package-release.sh` (`VERSION` defaults to
 `0.0.0-dev`; add `ARCHS="arm64 x86_64"` for a universal binary).
 
