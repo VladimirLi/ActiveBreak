@@ -1,8 +1,8 @@
-# ActiveBreak normative specification
+# Stillbreak normative specification
 
 ## Platform and privacy
 
-ActiveBreak MUST run on macOS 14 or newer as a menu-bar-only app with no normal
+Stillbreak MUST run on macOS 14 or newer as a menu-bar-only app with no normal
 Dock presence. It MUST use aggregate HID idle time, poll approximately once per
 second, treat all HID input equally, and MUST NOT request Accessibility or Input
 Monitoring permission or capture raw input.
@@ -148,10 +148,20 @@ records MUST be clipped to that range and split at current-local-midnight
 boundaries; exported timestamps and durations MUST NOT extend outside the
 selected range.
 
+## Legacy data migration
+
+On launch, when no `STILLBREAK_STATE_FILE` override is set, `state.json` does not
+exist in `Application Support/Stillbreak`, and `Application Support/ActiveBreak/state.json`
+exists, Stillbreak MUST copy the legacy file to the new location before loading
+it. The copy MUST be atomic, MUST NOT use the network, and MUST leave the legacy
+file unmodified. A migration failure MUST be surfaced as a persistence error and
+MUST NOT start from an empty state that is then saved. An existing new state file
+MUST never be overwritten.
+
 ## Diagnostics
 
-ActiveBreak MUST use Apple's unified log with subsystem
-`com.vladimirli.ActiveBreak` and bounded `timer`, `lifecycle`, `persistence`,
+Stillbreak MUST use Apple's unified log with subsystem
+`com.vladimirli.Stillbreak` and bounded `timer`, `lifecycle`, `persistence`,
 and `login-item` categories. Diagnostics MUST include enough structured fields
 to reconstruct sampled idle duration, inferred activity time, timer state
 before and after, closure reason, configured threshold and dead time,
@@ -185,10 +195,10 @@ hard-link identity before writing any output.
 
 Smoke verification MUST use the non-GUI core harness with an isolated state
 path, finish through normal process return, prove the live state fingerprint is
-unchanged, and prove no existing or new `ActiveBreak` crash report changed.
+unchanged, and prove no existing or new `Stillbreak` crash report changed.
 
 ## Distribution
 
 The project MUST build and test with Swift Package Manager and Command Line
-Tools. `scripts/package-app.sh` MUST produce an unsigned `ActiveBreak.app`
+Tools. `scripts/package-app.sh` MUST produce an unsigned `Stillbreak.app`
 containing an executable and an `Info.plist` with `LSUIElement` enabled.

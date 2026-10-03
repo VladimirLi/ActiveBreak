@@ -1,9 +1,9 @@
-import ActiveBreakCore
+import StillbreakCore
 import Foundation
 
 let environment = ProcessInfo.processInfo.environment
-guard let statePath = environment["ACTIVEBREAK_STATE_FILE"] else {
-    FileHandle.standardError.write(Data("ACTIVEBREAK_STATE_FILE is required\n".utf8))
+guard let statePath = environment["STILLBREAK_STATE_FILE"] else {
+    FileHandle.standardError.write(Data("STILLBREAK_STATE_FILE is required\n".utf8))
     exit(64)
 }
 
@@ -95,6 +95,6 @@ do {
     let elapsed = Date().timeIntervalSince(started)
     print("mode=\(benchmark ?? "smoke") iterations=\(iterations) writes=\(writes) elapsed=\(elapsed)")
 } catch {
-    FileHandle.standardError.write(Data("ActiveBreakSmoke failed: \(error)\n".utf8))
+    FileHandle.standardError.write(Data("StillbreakSmoke failed: \(error)\n".utf8))
     exit(1)
 }

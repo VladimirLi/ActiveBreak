@@ -3,31 +3,31 @@
 import PackageDescription
 
 let package = Package(
-    name: "ActiveBreak",
+    name: "Stillbreak",
     platforms: [.macOS(.v14)],
     products: [
-        .library(name: "ActiveBreakCore", targets: ["ActiveBreakCore"]),
-        .executable(name: "ActiveBreak", targets: ["ActiveBreak"]),
-        .executable(name: "ActiveBreakRepair", targets: ["ActiveBreakRepair"]),
-        .executable(name: "ActiveBreakSmoke", targets: ["ActiveBreakSmoke"]),
+        .library(name: "StillbreakCore", targets: ["StillbreakCore"]),
+        .executable(name: "Stillbreak", targets: ["Stillbreak"]),
+        .executable(name: "StillbreakRepair", targets: ["StillbreakRepair"]),
+        .executable(name: "StillbreakSmoke", targets: ["StillbreakSmoke"]),
     ],
     targets: [
-        .target(name: "ActiveBreakCore"),
+        .target(name: "StillbreakCore"),
         .executableTarget(
-            name: "ActiveBreak",
-            dependencies: ["ActiveBreakCore"]
+            name: "Stillbreak",
+            dependencies: ["StillbreakCore"]
         ),
         .executableTarget(
-            name: "ActiveBreakRepair",
-            dependencies: ["ActiveBreakCore"]
+            name: "StillbreakRepair",
+            dependencies: ["StillbreakCore"]
         ),
         .executableTarget(
-            name: "ActiveBreakSmoke",
-            dependencies: ["ActiveBreakCore"]
+            name: "StillbreakSmoke",
+            dependencies: ["StillbreakCore"]
         ),
         .testTarget(
-            name: "ActiveBreakCoreTests",
-            dependencies: ["ActiveBreakCore"],
+            name: "StillbreakCoreTests",
+            dependencies: ["StillbreakCore"],
             swiftSettings: [
                 .unsafeFlags([
                     "-F", "/Library/Developer/CommandLineTools/Library/Developer/Frameworks",

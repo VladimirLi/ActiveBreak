@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import ActiveBreakCore
+@testable import StillbreakCore
 
 @Test func appHIDGraceMatchesPollingCadence() {
     #expect(PermissionlessHIDPolicy.pollInterval == 1)
@@ -222,13 +222,30 @@ import Testing
     #expect(LaunchAtLoginPolicy.action(enabled: false, status: .notRegistered) == .none)
     #expect(LaunchAtLoginPolicy.action(enabled: false, status: .enabled) == .unregister)
     #expect(LaunchAtLoginPolicy.action(enabled: false, status: .requiresApproval) == .unregister)
+    #expect(
+        LaunchAtLoginPolicy.action(enabled: true, status: .notRegistered, legacyAppInstalled: true) == .none
+    )
+    #expect(
+        LaunchAtLoginPolicy.action(enabled: false, status: .enabled, legacyAppInstalled: true) == .unregister
+    )
+    #expect(
+        LaunchAtLoginPolicy.errorMessage(enabled: true, status: .notRegistered, legacyAppInstalled: true)?
+            .contains("ActiveBreak is still installed") == true
+    )
+    #expect(
+        LaunchAtLoginPolicy.errorMessage(enabled: false, status: .notRegistered, legacyAppInstalled: true) == nil
+    )
+    #expect(
+        LoginItemDiagnosticBuilder.configure(enabled: true, status: .notRegistered, legacyAppInstalled: true)
+            .outcome == "deferred"
+    )
     #expect(LaunchAtLoginPolicy.action(enabled: false, status: .notFound) == .none)
     #expect(LaunchAtLoginPolicy.errorMessage(enabled: true, status: .requiresApproval)
-        == "Open System Settings to approve ActiveBreak as a login item.")
+        == "Open System Settings to approve Stillbreak as a login item.")
     #expect(LaunchAtLoginPolicy.errorMessage(enabled: true, status: .notFound)
-        == "ActiveBreak could not be found by macOS Login Items.")
+        == "Stillbreak could not be found by macOS Login Items.")
     #expect(LaunchAtLoginPolicy.errorMessage(enabled: false, status: .notFound)
-        == "ActiveBreak could not be found by macOS Login Items.")
+        == "Stillbreak could not be found by macOS Login Items.")
 }
 
 @Test func quitClickAtDeadTimeBoundaryIsPersistedAsActivity() throws {
@@ -254,9 +271,9 @@ import Testing
         savedAt: quitAt,
         savedSystemUptime: 1_000
     )
-    let decoded = try JSONDecoder.activeBreak.decode(
+    let decoded = try JSONDecoder.stillbreak.decode(
         PersistedData.self,
-        from: JSONEncoder.activeBreak.encode(persisted)
+        from: JSONEncoder.stillbreak.encode(persisted)
     )
     var restored = TimerReducer(state: decoded.timer)
 
@@ -275,13 +292,13 @@ import Testing
 
 @Test func stateFileOverrideDoesNotUseApplicationSupport() {
     let support = URL(fileURLWithPath: "/Users/example/Library/Application Support")
-    let override = "/tmp/activebreak-test/state.json"
+    let override = "/tmp/stillbreak-test/state.json"
     #expect(StateFileLocator.url(
-        environment: ["ACTIVEBREAK_STATE_FILE": override],
+        environment: ["STILLBREAK_STATE_FILE": override],
         applicationSupport: support
     ).path == override)
     #expect(StateFileLocator.url(
         environment: [:],
         applicationSupport: support
-    ).path == "/Users/example/Library/Application Support/ActiveBreak/state.json")
+    ).path == "/Users/example/Library/Application Support/Stillbreak/state.json")
 }

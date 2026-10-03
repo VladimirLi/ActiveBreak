@@ -16,7 +16,7 @@ test "$(plutil -extract CFBundleVersion raw -o - "$PLIST")" = "$BUILD_NUMBER"
 NAME="$ARTIFACT_PREFIX-$VERSION"
 DMG="$DIST/$NAME.dmg"
 ZIP="$DIST/$NAME.zip"
-STAGE=$(mktemp -d "${TMPDIR:-/tmp}/activebreak-dmg.XXXXXX")
+STAGE=$(mktemp -d "${TMPDIR:-/tmp}/stillbreak-dmg.XXXXXX")
 trap 'rm -rf "$STAGE"' EXIT INT TERM
 
 rm -rf "$DIST"

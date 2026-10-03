@@ -1,4 +1,4 @@
-import ActiveBreakCore
+import StillbreakCore
 import AppKit
 import Foundation
 import SwiftUI

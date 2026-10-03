@@ -1,9 +1,9 @@
-import ActiveBreakCore
+import StillbreakCore
 import AppKit
 import SwiftUI
 
 @main
-struct ActiveBreakApp: App {
+struct StillbreakApp: App {
     @StateObject private var model = AppModel()
 
     var body: some Scene {

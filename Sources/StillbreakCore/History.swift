@@ -11,7 +11,7 @@ public struct HistoryStore: Sendable {
         guard FileManager.default.fileExists(atPath: url.path) else {
             return PersistedData()
         }
-        return try JSONDecoder.activeBreak.decode(PersistedData.self, from: Data(contentsOf: url))
+        return try JSONDecoder.stillbreak.decode(PersistedData.self, from: Data(contentsOf: url))
     }
 
     public func save(_ data: PersistedData) throws {
@@ -19,7 +19,7 @@ public struct HistoryStore: Sendable {
             at: url.deletingLastPathComponent(),
             withIntermediateDirectories: true
         )
-        try JSONEncoder.activeBreak.encode(data).write(to: url, options: .atomic)
+        try JSONEncoder.stillbreak.encode(data).write(to: url, options: .atomic)
     }
 }
 
@@ -139,11 +139,11 @@ public enum HistoryAggregator {
 }
 
 public extension JSONEncoder {
-    static var activeBreak: JSONEncoder {
+    static var stillbreak: JSONEncoder {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .custom { date, encoder in
             var container = encoder.singleValueContainer()
-            try container.encode(ActiveBreakDateCoding.string(from: date))
+            try container.encode(StillbreakDateCoding.string(from: date))
         }
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         return encoder
@@ -151,12 +151,12 @@ public extension JSONEncoder {
 }
 
 public extension JSONDecoder {
-    static var activeBreak: JSONDecoder {
+    static var stillbreak: JSONDecoder {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .custom { decoder in
             let container = try decoder.singleValueContainer()
             let value = try container.decode(String.self)
-            guard let date = ActiveBreakDateCoding.date(from: value) else {
+            guard let date = StillbreakDateCoding.date(from: value) else {
                 throw DecodingError.dataCorruptedError(
                     in: container,
                     debugDescription: "Invalid ISO-8601 date: \(value)"
@@ -168,7 +168,7 @@ public extension JSONDecoder {
     }
 }
 
-enum ActiveBreakDateCoding {
+enum StillbreakDateCoding {
     static func string(from date: Date) -> String {
         ISO8601DateFormatter.withFractionalSeconds.string(from: date)
     }

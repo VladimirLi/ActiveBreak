@@ -21,7 +21,7 @@ public enum HistoryExporter {
         before end: Date,
         calendar: Calendar = .current
     ) throws -> Data {
-        try JSONEncoder.activeBreak.encode(Self.records(
+        try JSONEncoder.stillbreak.encode(Self.records(
             records,
             from: start,
             before: end,
@@ -40,12 +40,12 @@ public enum HistoryExporter {
         let rows = selected.map { record -> String in
             let values = [
                 record.id.uuidString,
-                ActiveBreakDateCoding.string(from: record.intervalStart),
-                ActiveBreakDateCoding.string(from: record.intervalEnd),
+                StillbreakDateCoding.string(from: record.intervalStart),
+                StillbreakDateCoding.string(from: record.intervalEnd),
                 String(record.activeDuration),
                 String(record.overtimeDuration),
-                record.breakStart.map(ActiveBreakDateCoding.string) ?? "",
-                record.breakEnd.map(ActiveBreakDateCoding.string) ?? "",
+                record.breakStart.map(StillbreakDateCoding.string) ?? "",
+                record.breakEnd.map(StillbreakDateCoding.string) ?? "",
                 String(record.breakDuration),
             ]
             return values.map(escape).joined(separator: ",")

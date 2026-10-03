@@ -91,7 +91,7 @@ public enum HistoryRepairCommand {
             at: manifestURL.deletingLastPathComponent(),
             withIntermediateDirectories: true
         )
-        try JSONEncoder.activeBreak.encode(manifest).write(to: manifestURL, options: .atomic)
+        try JSONEncoder.stillbreak.encode(manifest).write(to: manifestURL, options: .atomic)
         return HistoryRepairCommandResult(manifest: manifest)
     }
 

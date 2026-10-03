@@ -1,6 +1,6 @@
-# ActiveBreak
+# Stillbreak
 
-ActiveBreak is a native, menu-bar-only macOS utility that reminds you to take
+Stillbreak is a native, menu-bar-only macOS utility that reminds you to take
 breaks based on actual keyboard, mouse, scroll, or tablet activity. Its current
 countdown is shown directly in the menu bar.
 
@@ -13,7 +13,7 @@ Accessibility or Input Monitoring permission.
 The default work threshold is 25 minutes and the default dead time is 5
 minutes. Both are configurable. Setting changes apply to the next interval.
 
-ActiveBreak uses a provisional "Model A" timeline:
+Stillbreak uses a provisional "Model A" timeline:
 
 ```text
 activity ----- provisional work gap ----- activity
@@ -21,14 +21,14 @@ activity ----- provisional work gap ----- activity
 ```
 
 If activity returns strictly before 5:00, the whole 4:59 gap remains work. If
-no activity returns and the gap reaches 5:00, ActiveBreak retroactively removes
+no activity returns and the gap reaches 5:00, Stillbreak retroactively removes
 that unresolved gap from active time, records it as a break, closes the
 interval, and returns to idle. The menu countdown can therefore jump back when
 dead time is reached.
 
 The permissionless aggregate HID API exposes only the latest event seen at each
 one-second poll. If that event is first observed no more than one polling
-interval after the dead-time boundary, ActiveBreak conservatively counts the
+interval after the dead-time boundary, Stillbreak conservatively counts the
 gap as work because an earlier event may have occurred between polls. Events
 later than that one-second grace close the old interval normally. Each
 reconstructed event is compared with the immediately previous observation so
@@ -36,7 +36,7 @@ drift from a stale physical event cannot accumulate into activity, while real
 millisecond-scale activity remains observable. Stale events outside the polling
 window cannot restart an idle timer.
 
-At zero, ActiveBreak sends one notification. Notification banners and sound can
+At zero, Stillbreak sends one notification. Notification banners and sound can
 be disabled independently. The timer continues below zero until dead time,
 Pause, sleep (including while the app is closed), reboot, or a sufficiently
 long app shutdown closes the interval.
@@ -61,12 +61,41 @@ Requires macOS 14 (Sonoma) or newer on Apple Silicon or Intel.
 
 The app lives in the menu bar only and has no Dock icon.
 
-The display name (app bundle, DMG and release file names) is set in one place,
+The name (app bundle, DMG and release file names) is set in one place,
 `APP_NAME` in `scripts/release-config.sh`; the install steps above only spell it
-out in the `APP_NAME=` line of the Terminal alternative. The SwiftPM product and
-target names, the bundle identifier, the log subsystem and the Application
-Support folder intentionally keep the name `ActiveBreak` and do not change with
-the display name.
+out in the `APP_NAME=` line of the Terminal alternative.
+
+### Upgrading from ActiveBreak
+
+Stillbreak was called ActiveBreak before its first public release. The first
+time Stillbreak launches and finds no data of its own, it copies your history and
+settings from `~/Library/Application Support/ActiveBreak/state.json` to
+`~/Library/Application Support/Stillbreak/state.json`. The old file is left in
+place untouched, so it doubles as a backup.
+
+Quit ActiveBreak from its menu **before** opening Stillbreak for the first time.
+While ActiveBreak is running, Stillbreak refuses that first import (the copy
+would be stale immediately), shows a storage error, and saves nothing; quit
+ActiveBreak and relaunch Stillbreak to retry. The same happens if the copy
+itself fails.
+
+If ActiveBreak runs again later (for example from its old Login Items entry) and
+records more history, nothing is lost: every Stillbreak launch compares
+ActiveBreak's file with the copy it last imported (kept as
+`legacy-import-base.json` next to Stillbreak's `state.json`) and adds the new
+history records. If ActiveBreak saved more recently than Stillbreak, its
+settings and timer state win too. Changes made while both apps run at the same
+time are picked up on the next Stillbreak launch. If ActiveBreak's file cannot
+be read, Stillbreak shows a storage error and saves nothing rather than risk
+overwriting it.
+
+The bundle identifier changed (`com.vladimirli.Stillbreak`), so macOS treats it
+as a new app and asks for notification permission again. Your "Launch at login"
+choice is carried over, but Stillbreak will not register itself as a login item
+while `ActiveBreak.app` is still installed, so the two never start together;
+Settings says so. Delete `ActiveBreak.app` (its old Login Items entry goes with
+it), then relaunch Stillbreak once and it registers itself. Past diagnostics
+stay under the old `com.vladimirli.ActiveBreak` log subsystem.
 
 ### First launch on macOS 15 Sequoia and macOS 26 Tahoe
 
@@ -90,7 +119,7 @@ click **Open** in the dialog. The Open Anyway steps above also work.
 ### Terminal alternative (any version)
 
 ```sh
-APP_NAME=ActiveBreak
+APP_NAME=Stillbreak
 xattr -dr com.apple.quarantine "/Applications/$APP_NAME.app"
 ```
 
@@ -100,7 +129,7 @@ SHA-256 checksums in the release notes with `shasum -a 256 <file>`.
 
 ### Why the warning appears
 
-ActiveBreak is free and open source, and releases are only ad-hoc signed, not
+Stillbreak is free and open source, and releases are only ad-hoc signed, not
 signed with an Apple Developer ID or notarized. Notarization requires a paid
 Apple Developer Program membership, which the project does not have yet. The
 warning means Apple has not scanned the build; it does not mean the app is
@@ -139,7 +168,7 @@ The cache variables and `--disable-sandbox` are needed only in restricted
 shells. In a normal terminal, `swift test` and `swift build -c release` are
 sufficient.
 
-With Xcode, open `Package.swift`, select the `ActiveBreak` executable scheme,
+With Xcode, open `Package.swift`, select the `Stillbreak` executable scheme,
 and Run. Use Product > Test to run the package tests. To create the standalone
 ad-hoc signed bundle, run `./scripts/package-app.sh` in Terminal. To also
 produce the `.dmg`, `.zip` and checksums in `dist/`, run
@@ -205,18 +234,19 @@ segments are decoded into the closest equivalent contiguous timeline.
 All settings, timer state, and history are stored as JSON in:
 
 ```text
-~/Library/Application Support/ActiveBreak/state.json
+~/Library/Application Support/Stillbreak/state.json
 ```
 
-There is no network service, telemetry, account, cloud sync, or app-level
-tracking.
+Data from the earlier ActiveBreak name is migrated once; see
+[Upgrading from ActiveBreak](#upgrading-from-activebreak). There is no network
+service, telemetry, account, cloud sync, or app-level tracking.
 
-ActiveBreak writes bounded local diagnostics to Apple's unified log under the
-`com.vladimirli.ActiveBreak` subsystem, with `timer`, `lifecycle`,
+Stillbreak writes bounded local diagnostics to Apple's unified log under the
+`com.vladimirli.Stillbreak` subsystem, with `timer`, `lifecycle`,
 `persistence`, and `login-item` categories:
 
 ```sh
-log show --last 1h --predicate 'subsystem == "com.vladimirli.ActiveBreak"'
+log show --last 1h --predicate 'subsystem == "com.vladimirli.Stillbreak"'
 ```
 
 Diagnostics include timing decisions, state transitions, effect kinds,
@@ -231,9 +261,9 @@ State is saved when it changes, at lifecycle boundaries, and at most every 60
 seconds as a checkpoint. An abrupt process loss can therefore lose at most the
 current provisional interval since the latest checkpoint.
 
-The smoke script runs the non-GUI `ActiveBreakSmoke` executable with an
-isolated `ACTIVEBREAK_STATE_FILE`, exits normally, verifies that live state is
-unchanged, and fails if an `ActiveBreak` crash report was added or modified.
+The smoke script runs the non-GUI `StillbreakSmoke` executable with an
+isolated `STILLBREAK_STATE_FILE`, exits normally, verifies that live state is
+unchanged, and fails if a `Stillbreak` crash report was added or modified.
 
 ## History repair
 
@@ -241,8 +271,8 @@ Build the tools, then preview a state file without modifying it:
 
 ```sh
 swift build -c release --disable-sandbox
-.build/release/ActiveBreakRepair \
-  --state "$HOME/Library/Application Support/ActiveBreak/state.json" \
+.build/release/StillbreakRepair \
+  --state "$HOME/Library/Application Support/Stillbreak/state.json" \
   --manifest .build/history-repair-preview.json
 ```
 
@@ -255,11 +285,11 @@ paths. Keep the backup until the repaired history has been reviewed.
 
 ## Architecture
 
-- `ActiveBreakCore`: pure reducer, persistence, aggregation, and export logic
-- `ActiveBreak`: SwiftUI menu bar, settings, dashboard, notifications, and
+- `StillbreakCore`: pure reducer, persistence, aggregation, and export logic
+- `Stillbreak`: SwiftUI menu bar, settings, dashboard, notifications, and
   `SMAppService` integration
-- `ActiveBreakRepair`: preview/apply history repair command
-- `ActiveBreakSmoke`: isolated non-GUI persistence and lifecycle harness
+- `StillbreakRepair`: preview/apply history repair command
+- `StillbreakSmoke`: isolated non-GUI persistence and lifecycle harness
 - `scripts/package-app.sh`: release build and ad-hoc signed `.app` assembly
 - `scripts/package-release.sh`: `.dmg`, `.zip` and checksums in `dist/`
 - `scripts/release-config.sh`: app name, bundle ID, artifact prefix, signing

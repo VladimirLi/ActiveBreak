@@ -7,7 +7,7 @@ import Testing
         .deletingLastPathComponent()
         .deletingLastPathComponent()
     let source = try String(
-        contentsOf: repository.appendingPathComponent("Sources/ActiveBreak/ActiveBreakApp.swift"),
+        contentsOf: repository.appendingPathComponent("Sources/Stillbreak/StillbreakApp.swift"),
         encoding: .utf8
     )
     let menuBar = try #require(source.range(of: "MenuBarExtra {"))

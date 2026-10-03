@@ -7,7 +7,7 @@ private func viewsSource() throws -> String {
         .deletingLastPathComponent()
         .deletingLastPathComponent()
     return try String(
-        contentsOf: repository.appendingPathComponent("Sources/ActiveBreak/Views.swift"),
+        contentsOf: repository.appendingPathComponent("Sources/Stillbreak/Views.swift"),
         encoding: .utf8
     )
 }

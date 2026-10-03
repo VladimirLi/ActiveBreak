@@ -94,11 +94,12 @@ public enum LaunchAtLoginAction: Equatable, Sendable {
 public enum LaunchAtLoginPolicy {
     public static func action(
         enabled: Bool,
-        status: LaunchAtLoginStatus
+        status: LaunchAtLoginStatus,
+        legacyAppInstalled: Bool = false
     ) -> LaunchAtLoginAction {
         switch (enabled, status) {
         case (true, .notRegistered):
-            return .register
+            return legacyAppInstalled ? .none : .register
         case (false, .enabled), (false, .requiresApproval):
             return .unregister
         default:
@@ -108,13 +109,17 @@ public enum LaunchAtLoginPolicy {
 
     public static func errorMessage(
         enabled: Bool,
-        status: LaunchAtLoginStatus
+        status: LaunchAtLoginStatus,
+        legacyAppInstalled: Bool = false
     ) -> String? {
+        if enabled, legacyAppInstalled, status == .notRegistered {
+            return "ActiveBreak is still installed. Delete it to let Stillbreak launch at login, so both do not start together."
+        }
         switch status {
         case .notFound:
-            return "ActiveBreak could not be found by macOS Login Items."
+            return "Stillbreak could not be found by macOS Login Items."
         case .requiresApproval where enabled:
-            return "Open System Settings to approve ActiveBreak as a login item."
+            return "Open System Settings to approve Stillbreak as a login item."
         default:
             return nil
         }
@@ -122,14 +127,16 @@ public enum LaunchAtLoginPolicy {
 }
 
 public enum StateFileLocator {
+    public static let overrideVariable = "STILLBREAK_STATE_FILE"
+
     public static func url(
         environment: [String: String],
         applicationSupport: URL
     ) -> URL {
-        environment["ACTIVEBREAK_STATE_FILE"].map {
+        environment[overrideVariable].map {
             URL(fileURLWithPath: $0).standardizedFileURL
         } ?? applicationSupport
-            .appendingPathComponent("ActiveBreak", isDirectory: true)
+            .appendingPathComponent("Stillbreak", isDirectory: true)
             .appendingPathComponent("state.json")
     }
 }

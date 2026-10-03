@@ -7,7 +7,7 @@ import Testing
         .deletingLastPathComponent()
         .deletingLastPathComponent()
     let appModel = try String(
-        contentsOf: repository.appendingPathComponent("Sources/ActiveBreak/AppModel.swift"),
+        contentsOf: repository.appendingPathComponent("Sources/Stillbreak/AppModel.swift"),
         encoding: .utf8
     )
 

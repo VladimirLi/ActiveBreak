@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import ActiveBreakCore
+@testable import StillbreakCore
 
 @Test func timerDiagnosticContainsBoundedDecisionFields() throws {
     let inferred = Date(timeIntervalSince1970: 1_700_000_000.125)
@@ -24,7 +24,7 @@ import Testing
     )
 
     let fields = try #require(
-        JSONSerialization.jsonObject(with: JSONEncoder.activeBreak.encode(event))
+        JSONSerialization.jsonObject(with: JSONEncoder.stillbreak.encode(event))
             as? [String: Any]
     )
     #expect(Set(fields.keys) == [

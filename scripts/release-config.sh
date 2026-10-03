@@ -2,10 +2,10 @@
 # SwiftPM product name in Package.swift when EXECUTABLE_NAME changes.
 
 # Display name: .app bundle, DMG volume, CFBundleName, artifact prefix.
-APP_NAME=${APP_NAME:-ActiveBreak}
+APP_NAME=${APP_NAME:-Stillbreak}
 # SwiftPM executable product built by `swift build` (see Package.swift).
-EXECUTABLE_NAME=${EXECUTABLE_NAME:-ActiveBreak}
-BUNDLE_ID=${BUNDLE_ID:-com.vladimirli.ActiveBreak}
+EXECUTABLE_NAME=${EXECUTABLE_NAME:-Stillbreak}
+BUNDLE_ID=${BUNDLE_ID:-com.vladimirli.Stillbreak}
 ARTIFACT_PREFIX=${ARTIFACT_PREFIX:-$APP_NAME}
 MIN_MACOS=${MIN_MACOS:-14.0}
 
