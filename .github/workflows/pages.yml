@@ -1,15 +1,7 @@
 name: Pages
 
+# Push trigger returns once Pages is enabled and the site is approved for publishing.
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'docs/index.html'
-      - 'docs/site.css'
-      - 'docs/brand/favicon/**'
-      - 'docs/brand/screenshots/**'
-      - 'docs/brand/social-preview.png'
-      - '.github/workflows/pages.yml'
   workflow_dispatch:
 
 permissions:

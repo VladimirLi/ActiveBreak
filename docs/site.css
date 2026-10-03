@@ -107,8 +107,6 @@ p { margin: 0; }
 .btn:hover { background: var(--btn-hover); text-decoration: none; }
 .btn svg { width: 20px; height: 20px; flex: none; }
 .btn-lg { min-height: 56px; padding-inline: 36px; font-size: 1.1875rem; }
-.btn-secondary { background: transparent; color: var(--blue-text); box-shadow: inset 0 0 0 1.5px currentColor; }
-.btn-secondary:hover { background: color-mix(in srgb, var(--blue-text) 10%, transparent); }
 .link-cta { display: inline-flex; align-items: center; min-height: 48px; font-weight: 600; }
 
 /* Hero */
@@ -202,5 +200,4 @@ details p + p, details p + pre { margin-top: 12px; }
   .btn-lg { width: 100%; padding-inline: 20px; }
   .cta-row { flex-direction: column; }
   .install-lead { justify-items: stretch; }
-  .support-actions .btn { width: 100%; }
 }
