@@ -89,7 +89,7 @@ p { margin: 0; }
 /* Header */
 .site-header { padding-block: 16px; }
 .site-header .wrap { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-.brand { display: inline-flex; align-items: center; gap: 10px; color: var(--ink); font-weight: 700; font-size: 1.125rem; letter-spacing: -0.01em; text-decoration: none; }
+.brand { display: inline-flex; align-items: center; min-height: 44px; gap: 10px; color: var(--ink); font-weight: 700; font-size: 1.125rem; letter-spacing: -0.01em; text-decoration: none; }
 .brand img { width: 32px; height: 32px; }
 .nav { display: flex; align-items: center; gap: 4px; }
 .nav a { display: inline-flex; align-items: center; min-height: 44px; padding-inline: 12px; color: var(--ink); font-size: 0.9375rem; font-weight: 500; text-decoration: none; border-radius: 999px; }
@@ -121,11 +121,8 @@ p { margin: 0; }
 .chips li { padding: 6px 14px; border-radius: 999px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); font-size: 0.9375rem; font-weight: 500; }
 
 .shot { margin: clamp(40px, 7vw, 72px) auto 0; }
-.shot a { display: block; }
 .shot img { width: 100%; max-width: var(--wrap); margin-inline: auto; }
 .shot figcaption { margin-top: 12px; text-align: center; }
-.shot .only-small { display: none; }
-@media (max-width: 719px) { .shot .only-small { display: inline; } }
 
 /* Sections */
 section { padding-block: var(--section) 0; }
