@@ -10,12 +10,7 @@ Accessibility or Input Monitoring permission.
 
 ## Screenshots
 
-The countdown sits in the menu bar:
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/brand/screenshots/menubar-countdown-dark.png">
-  <img alt="Menu bar status item showing a countdown of minutes and seconds" src="docs/brand/screenshots/menubar-countdown-light.png" height="20">
-</picture>
-and runs below zero in overtime.
+The countdown sits in the menu bar: <picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand/screenshots/menubar-countdown-dark.png"><img alt="Menu bar status item showing a countdown of minutes and seconds" src="docs/brand/screenshots/menubar-countdown-light.png" height="20"></picture> and runs below zero in overtime: <picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand/screenshots/menubar-overtime-dark.png"><img alt="Menu bar status item showing a negative countdown in overtime" src="docs/brand/screenshots/menubar-overtime-light.png" height="20"></picture>
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/brand/screenshots/dashboard-dark.png">

@@ -3,7 +3,7 @@
     <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#5AB0FF"/><stop offset="0.45" stop-color="#0A84FF"/><stop offset="1" stop-color="#0556D6"/>
     </linearGradient>
-    
+
     <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#fff" stop-opacity="0.22"/>
       <stop offset="0.5" stop-color="#fff" stop-opacity="0"/>
