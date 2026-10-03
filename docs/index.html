@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Stillbreak: break reminders that follow your real activity (macOS)</title>
+  <meta name="description" content="A free, open source menu bar break reminder for macOS 14+. The countdown follows your real keyboard and mouse activity. No Accessibility permission, no tracking, no account.">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#f5f5f7" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#101014" media="(prefers-color-scheme: dark)">
+
+  <!-- SITE_URL: confirm the final Pages URL before publishing (project site is https://vladimirli.github.io/Stillbreak/). -->
+  <link rel="canonical" href="https://vladimirli.github.io/Stillbreak/">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Stillbreak: break reminders that follow your real activity">
+  <meta property="og:description" content="Free, open source menu bar break reminder for macOS. No Accessibility permission, no tracking, no account.">
+  <meta property="og:url" content="https://vladimirli.github.io/Stillbreak/">
+  <meta property="og:image" content="https://vladimirli.github.io/Stillbreak/brand/social-preview.png">
+  <meta property="og:image:width" content="1280">
+  <meta property="og:image:height" content="640">
+  <meta name="twitter:card" content="summary_large_image">
+
+  <link rel="icon" href="brand/favicon/favicon.ico" sizes="48x48">
+  <link rel="icon" href="brand/favicon/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="brand/favicon/apple-touch-icon.png">
+  <link rel="manifest" href="brand/favicon/site.webmanifest">
+  <link rel="stylesheet" href="site.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <div class="wrap">
+      <a class="brand" href="#top">
+        <img src="brand/favicon/favicon.svg" alt="" width="32" height="32">
+        Stillbreak
+      </a>
+      <nav class="nav" aria-label="Page">
+        <a class="nav-extra" href="#features">Features</a>
+        <a href="#install">Install</a>
+        <a class="nav-extra" href="#support">Support</a>
+        <a href="https://github.com/VladimirLi/Stillbreak">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <!-- 1. HERO -->
+    <section class="hero" id="top">
+      <div class="wrap">
+        <h1>Break reminders that follow your real activity.</h1>
+        <p class="lede">Stillbreak sits in your menu bar and counts the time you actually spend working. Step away and the break counts. Keep going and it tells you once.</p>
+
+        <div class="cta-row">
+          <a class="btn btn-lg" href="https://github.com/VladimirLi/Stillbreak/releases/latest">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 20h14"/></svg>
+            Download for macOS
+          </a>
+          <a class="link-cta" href="https://github.com/VladimirLi/Stillbreak">View on GitHub</a>
+        </div>
+        <p class="small cta-meta">Free · Open source (MIT) · macOS 14 or later · Apple Silicon and Intel</p>
+
+        <ul class="chips" aria-label="Privacy and price">
+          <li>No Accessibility permission</li>
+          <li>No tracking</li>
+          <li>No account</li>
+          <li>Free, donation-supported</li>
+        </ul>
+
+        <figure class="shot">
+          <picture>
+            <source media="(prefers-color-scheme: dark)" srcset="brand/screenshots/dashboard-dark.png">
+            <img src="brand/screenshots/dashboard-light.png" width="1368" height="828"
+                 alt="The Stillbreak Dashboard: a seven-day timeline with work shown as blue blocks and overtime as red, and totals for active time, overtime and longest stretch.">
+          </picture>
+          <figcaption class="small">The Dashboard: seven days of work in blue, overtime in red. Sample data.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <!-- 2. NOT A STOPWATCH -->
+    <section id="how">
+      <div class="wrap">
+        <div class="section-head measure">
+          <h2>A stopwatch can’t tell you went to lunch.</h2>
+          <p class="lede">A fixed timer ticks whether you’re typing or making coffee. Stillbreak reads how long it has been since your last keyboard, mouse, scroll or tablet input, and records a gap of five minutes or more as a break. Work and break lengths are yours to set; the defaults are 25 and 5 minutes.</p>
+        </div>
+
+        <div class="timeline">
+          <div class="tl-row">
+            <div class="tl-label">Fixed timer</div>
+            <div class="tl-track" role="img" aria-label="A fixed timer counts every minute, including the minutes you were away.">
+              <span class="tl-bar is-ticking"></span><span class="tl-bar is-ticking"></span><span class="tl-bar is-ticking"></span><span class="tl-bar is-ticking"></span>
+              <span class="tl-bar is-ticking"></span><span class="tl-bar is-ticking"></span><span class="tl-bar is-ticking"></span><span class="tl-bar is-ticking"></span>
+              <span class="tl-bar is-ticking"></span><span class="tl-bar is-ticking"></span><span class="tl-bar is-ticking"></span><span class="tl-bar is-ticking"></span>
+            </div>
+            <p class="small tl-note">Counts everything, so it reminds you whether or not you worked.</p>
+          </div>
+          <div class="tl-row">
+            <div class="tl-label">Stillbreak</div>
+            <div class="tl-track" role="img" aria-label="Stillbreak counts work in blue, treats a long gap as a break, then starts a fresh stretch.">
+              <span class="tl-bar"></span><span class="tl-bar"></span><span class="tl-bar"></span><span class="tl-bar"></span>
+              <span class="tl-bar is-away"></span><span class="tl-bar is-away"></span><span class="tl-bar is-away"></span><span class="tl-bar is-away"></span><span class="tl-bar is-away"></span>
+              <span class="tl-bar"></span><span class="tl-bar"></span><span class="tl-bar"></span>
+            </div>
+            <p class="small tl-note">Counts real work. Time away becomes a break, and the next stretch starts fresh.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. FEATURES -->
+    <section id="features">
+      <div class="wrap">
+        <div class="section-head measure">
+          <h2>Small, quiet, and on your side.</h2>
+        </div>
+
+        <ul class="features">
+          <li class="card">
+            <div class="icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-7 4 14 3-7h4"/></svg></div>
+            <h3>Counts real work</h3>
+            <p>Short pauses stay part of the work. Only a gap that reaches your break length is recorded as a break, so reading a long email or thinking through a problem doesn’t reset the clock.</p>
+          </li>
+
+          <li class="card">
+            <div class="icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></div>
+            <h3>Private by design</h3>
+            <p>Stillbreak reads one thing from macOS: how long since your last input. It does not record keys, pointer positions, app names or window titles. No Accessibility or Input Monitoring permission, and no network service, telemetry or account. <a href="https://github.com/VladimirLi/Stillbreak#data-and-privacy">Read the details</a> or read the source.</p>
+          </li>
+
+          <li class="card">
+            <div class="icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div>
+            <h3>The countdown lives in your menu bar</h3>
+            <p>Time left is always visible, with no window to open. At zero you get one notification (banner and sound can each be turned off), and the clock keeps running into overtime until you take a break.</p>
+            <div class="menubar-pair">
+              <figure>
+                <picture>
+                  <source media="(prefers-color-scheme: dark)" srcset="brand/screenshots/menubar-countdown-dark.png">
+                  <img src="brand/screenshots/menubar-countdown-light.png" width="78" height="30" alt="Menu bar showing the Stillbreak icon and a countdown.">
+                </picture>
+                <figcaption>Counting down</figcaption>
+              </figure>
+              <figure>
+                <picture>
+                  <source media="(prefers-color-scheme: dark)" srcset="brand/screenshots/menubar-overtime-dark.png">
+                  <img src="brand/screenshots/menubar-overtime-light.png" width="78" height="30" alt="Menu bar showing the Stillbreak icon and an overtime reading.">
+                </picture>
+                <figcaption>Past zero</figcaption>
+              </figure>
+            </div>
+          </li>
+
+          <li class="card">
+            <div class="icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20V11M12 20V4M19 20v-6"/></svg></div>
+            <h3>See your week, keep your data</h3>
+            <p>The Dashboard lays out 3, 7 or 14 days with work in blue and overtime in red, and exports to CSV or JSON. History is one file on your Mac and stays there until you delete it.</p>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- 4. DOWNLOAD AND INSTALL -->
+    <section id="install">
+      <div class="wrap">
+        <div class="section-head measure">
+          <h2>Download and install</h2>
+          <p class="lede">Stillbreak isn’t notarized by Apple yet, so macOS asks you to confirm the first launch. It takes under a minute.</p>
+        </div>
+
+        <div class="install-lead">
+          <a class="btn btn-lg" href="https://github.com/VladimirLi/Stillbreak/releases/latest">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 20h14"/></svg>
+            Download for macOS
+          </a>
+          <p class="small">Latest release on GitHub. Requires macOS 14 Sonoma or later. Apple Silicon and Intel.</p>
+        </div>
+
+        <ol class="steps steps-lead measure">
+          <li><strong>Open the downloaded <kbd>.dmg</kbd></strong> and drag Stillbreak onto the <span class="ui">Applications</span> shortcut.</li>
+          <li><strong>Open Stillbreak from Applications.</strong> Install it there before the first launch; running it from the disk image or Downloads can make launch at login fail.</li>
+          <li><strong>macOS blocks the first launch.</strong> Allow it once, using the steps for your version below.</li>
+        </ol>
+
+        <div class="install-grid">
+          <div class="panel">
+            <h3>macOS 15 Sequoia or macOS 26 Tahoe</h3>
+            <p class="small">Right-click &gt; Open no longer works on these versions.</p>
+            <ol class="steps">
+              <li>Open Stillbreak once and dismiss the warning (<span class="ui">Done</span> or <span class="ui">OK</span>). Don’t move it to the Trash.</li>
+              <li>Open <span class="ui">System Settings &gt; Privacy &amp; Security</span> and scroll to <span class="ui">Security</span>.</li>
+              <li>Click <span class="ui">Open Anyway</span> next to the message about Stillbreak, then enter your password or use Touch ID.</li>
+              <li>Click <span class="ui">Open</span> when the warning appears again.</li>
+            </ol>
+            <p class="small panel-note">Open Anyway only appears after a blocked launch, and only for a limited time. If it’s missing, open Stillbreak again first.</p>
+          </div>
+
+          <div class="panel">
+            <h3>macOS 14 Sonoma</h3>
+            <ol class="steps">
+              <li>Control-click (or right-click) Stillbreak in Applications and choose <span class="ui">Open</span>.</li>
+              <li>Click <span class="ui">Open</span> in the dialog.</li>
+            </ol>
+            <p class="small panel-note">The Privacy &amp; Security steps also work on Sonoma.</p>
+          </div>
+        </div>
+
+        <details>
+          <summary>Prefer Terminal?</summary>
+          <p>This removes the download quarantine flag so macOS stops asking. Only do it for a download you trust.</p>
+          <pre><code>xattr -dr com.apple.quarantine /Applications/Stillbreak.app</code></pre>
+        </details>
+
+        <div class="why measure">
+          <h3>Why the warning appears</h3>
+          <p class="body-lg">Stillbreak is free and open source, and releases are only ad-hoc signed, not signed with an Apple Developer ID or notarized. Notarization needs a paid Apple Developer Program membership, which the project doesn’t have yet. The warning means Apple hasn’t scanned this build, not that it’s harmful. You can <a href="https://github.com/VladimirLi/Stillbreak">read the source</a>, build it yourself, or compare your download with the SHA-256 checksums in the release notes (<code>shasum -a 256 &lt;file&gt;</code>).</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. SUPPORT -->
+    <section id="support">
+      <div class="wrap">
+        <div class="support measure">
+          <div>
+            <h2>Free, and staying free.</h2>
+            <p class="lede support-lede">Stillbreak has no paid tier and no locked features. If it earns a place in your menu bar, you can chip in. It’s optional, and nothing changes if you don’t.</p>
+          </div>
+          <div class="support-actions">
+            <a class="link-cta" href="https://github.com/VladimirLi/Stillbreak">Star the repo</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <div class="footer-grid">
+        <div>
+          <a class="brand" href="#top">
+            <img src="brand/favicon/favicon.svg" alt="" width="32" height="32">
+            Stillbreak
+          </a>
+          <p class="small legal">Free and open source under the MIT license. Mac and macOS are trademarks of Apple Inc.; Stillbreak is not affiliated with or endorsed by Apple.</p>
+        </div>
+        <ul class="footer-links" aria-label="Project links">
+          <li><a href="https://github.com/VladimirLi/Stillbreak">GitHub</a></li>
+          <li><a href="https://github.com/VladimirLi/Stillbreak/releases">Releases</a></li>
+          <li><a href="https://github.com/VladimirLi/Stillbreak/issues">Report an issue</a></li>
+          <li><a href="https://github.com/VladimirLi/Stillbreak/blob/main/LICENSE">License</a></li>
+        </ul>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

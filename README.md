@@ -65,7 +65,7 @@ closure more than once cannot create a second history record.
 Requires macOS 14 (Sonoma) or newer on Apple Silicon or Intel.
 
 1. Download the `.dmg` (named `<app name>-<version>.dmg`) from the
-   [latest release](https://github.com/VladimirLi/ActiveBreak/releases/latest).
+   [latest release](https://github.com/VladimirLi/Stillbreak/releases/latest).
    A `.zip` of the same app is attached too.
 2. Open the DMG and drag the app onto the **Applications** shortcut. Install it
    in `/Applications` before the first launch; running it from the DMG or
